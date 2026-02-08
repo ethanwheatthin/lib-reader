@@ -1,8 +1,143 @@
-<div class="epub-container">
+<div class="epub-container" [attr.data-theme]="theme()">
+  <!-- Top bar: navigation + settings toggle -->
   <div class="reader-controls">
-    <button (click)="prevPage()" [disabled]="!canGoPrev">Previous</button>
+    <button (click)="prevPage()" [disabled]="!canGoPrev" aria-label="Previous page">Previous</button>
     <span class="page-info">{{ currentLocation }}</span>
-    <button (click)="nextPage()" [disabled]="!canGoNext">Next</button>
+    <button (click)="nextPage()" [disabled]="!canGoNext" aria-label="Next page">Next</button>
+
+    <button
+      class="settings-toggle"
+      (click)="toggleSettings()"
+      [attr.aria-expanded]="settingsOpen()"
+      aria-label="Reader settings"
+      title="Reader settings">
+      ⚙
+    </button>
   </div>
+
+  <!-- Floating / draggable settings panel (no backdrop — non-blocking) -->
+  @if (settingsOpen()) {
+    <aside
+      class="settings-panel"
+      role="dialog"
+      aria-label="Reader settings"
+      [style.left.px]="panelX()"
+      [style.top.px]="panelY()"
+      [class.positioned]="panelX() !== null">
+      <!-- Drag handle -->
+      <header
+        class="settings-header"
+        (mousedown)="onDragStart($event)"
+        (touchstart)="onDragStart($event)">
+        <span class="drag-grip" aria-hidden="true">⠿</span>
+        <h3>Reader Settings</h3>
+        <button class="close-btn" (click)="toggleSettings()" aria-label="Close settings">✕</button>
+      </header>
+
+      <!-- Presets -->
+      <div class="settings-section presets-section">
+        <span class="section-label">Quick Presets</span>
+        <div class="preset-buttons">
+          @for (preset of presets; track preset.label) {
+            <button
+              class="preset-btn"
+              (click)="applyPreset(preset)"
+              [attr.aria-label]="preset.label + ' preset'">
+              <span class="preset-icon">{{ preset.icon }}</span>
+              {{ preset.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Font Size slider -->
+      <div class="settings-section">
+        <div class="slider-header">
+          <span class="section-label">Font Size</span>
+          <span class="slider-value">{{ fontSize() }}px</span>
+        </div>
+        <input
+          type="range"
+          class="settings-slider"
+          [min]="FONT_SIZE_MIN"
+          [max]="FONT_SIZE_MAX"
+          [step]="FONT_SIZE_STEP"
+          [value]="fontSize()"
+          (input)="updateFontSize($event)"
+          aria-label="Font size" />
+        <div class="slider-range-labels">
+          <span>{{ FONT_SIZE_MIN }}px</span>
+          <span>{{ FONT_SIZE_MAX }}px</span>
+        </div>
+      </div>
+
+      <!-- Margin slider -->
+      <div class="settings-section">
+        <div class="slider-header">
+          <span class="section-label">Margin</span>
+          <span class="slider-value">{{ margin() }}px</span>
+        </div>
+        <input
+          type="range"
+          class="settings-slider"
+          [min]="MARGIN_MIN"
+          [max]="MARGIN_MAX"
+          [step]="MARGIN_STEP"
+          [value]="margin()"
+          (input)="updateMargin($event)"
+          aria-label="Margin" />
+        <div class="slider-range-labels">
+          <span>{{ MARGIN_MIN }}px</span>
+          <span>{{ MARGIN_MAX }}px</span>
+        </div>
+      </div>
+
+      <!-- Line Height slider -->
+      <div class="settings-section">
+        <div class="slider-header">
+          <span class="section-label">Line Height</span>
+          <span class="slider-value">{{ lineHeight() }}</span>
+        </div>
+        <input
+          type="range"
+          class="settings-slider"
+          [min]="LINE_HEIGHT_MIN"
+          [max]="LINE_HEIGHT_MAX"
+          [step]="LINE_HEIGHT_STEP"
+          [value]="lineHeight()"
+          (input)="updateLineHeight($event)"
+          aria-label="Line height" />
+        <div class="slider-range-labels">
+          <span>{{ LINE_HEIGHT_MIN }}</span>
+          <span>{{ LINE_HEIGHT_MAX }}</span>
+        </div>
+      </div>
+
+      <!-- Theme -->
+      <div class="settings-section">
+        <span class="section-label">Theme</span>
+        <div class="theme-buttons" role="radiogroup" aria-label="Reader theme">
+          @for (opt of themeOptions; track opt.value) {
+            <button
+              class="theme-btn theme-btn--{{ opt.value }}"
+              [class.selected]="theme() === opt.value"
+              (click)="updateTheme(opt.value)"
+              [attr.aria-pressed]="theme() === opt.value"
+              [attr.aria-label]="opt.label + ' theme'">
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Reset -->
+      <div class="settings-section reset-section">
+        <button class="reset-btn" (click)="resetToDefaults()" aria-label="Reset to default settings">
+          ↺ Reset to Defaults
+        </button>
+      </div>
+    </aside>
+  }
+
   <div #viewer class="epub-viewer"></div>
 </div>
