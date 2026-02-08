@@ -7,6 +7,7 @@ import { DocumentsActions } from './documents.actions';
 import { IndexDBService } from '../../core/services/indexdb.service';
 import { EpubService } from '../../core/services/epub.service';
 import { PdfService } from '../../core/services/pdf.service';
+import { OpenLibraryService } from '../../core/services/open-library.service';
 import { Document } from '../../core/models/document.model';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class DocumentsEffects {
   private indexDB = inject(IndexDBService);
   private epubService = inject(EpubService);
   private pdfService = inject(PdfService);
+  private openLibraryService = inject(OpenLibraryService);
   private store = inject(Store);
 
   uploadDocument$ = createEffect(() =>
@@ -153,6 +155,49 @@ export class DocumentsEffects {
     { dispatch: false }
   );
 
+  // --- Metadata actions ---
+
+  updateBookMetadata$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentsActions.updateBookMetadata),
+      mergeMap(({ id }) =>
+        from(this.persistMetadata(id)).pipe(
+          map(() => ({ type: 'NO_ACTION' as const }))
+        )
+      )
+    ),
+    { dispatch: false }
+  );
+
+  fetchMetadataFromOpenLibrary$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentsActions.fetchMetadataFromOpenLibrary),
+      mergeMap(({ id, title }) =>
+        this.openLibraryService.searchByTitle(title).pipe(
+          map((results) => {
+            if (results.length > 0) {
+              return DocumentsActions.fetchMetadataSuccess({ id, metadata: results[0] });
+            }
+            return { type: 'NO_ACTION' as const };
+          }),
+          catchError(() => of({ type: 'NO_ACTION' as const }))
+        )
+      )
+    )
+  );
+
+  fetchMetadataSuccess$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentsActions.fetchMetadataSuccess),
+      mergeMap(({ id }) =>
+        from(this.persistMetadata(id)).pipe(
+          map(() => ({ type: 'NO_ACTION' as const }))
+        )
+      )
+    ),
+    { dispatch: false }
+  );
+
   private async processUpload(file: File): Promise<Document> {
     const id = crypto.randomUUID();
     const type = file.name.endsWith('.epub') ? 'epub' : 'pdf';
@@ -214,6 +259,10 @@ export class DocumentsEffects {
 
   private async persistReadingGoal(id: string): Promise<void> {
     await this.syncDocumentField(id, 'readingGoal');
+  }
+
+  private async persistMetadata(id: string): Promise<void> {
+    await this.syncDocumentField(id, 'metadata');
   }
 
   /**
