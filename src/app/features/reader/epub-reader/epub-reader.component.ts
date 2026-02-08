@@ -20,16 +20,10 @@ import {
   DEFAULT_READER_SETTINGS,
   ThemeOption,
   FONT_SIZE_MIN,
-  FONT_SIZE_MAX,
   FONT_SIZE_STEP,
-  MARGIN_MIN,
-  MARGIN_MAX,
-  MARGIN_STEP,
   LINE_HEIGHT_MIN,
-  LINE_HEIGHT_MAX,
   LINE_HEIGHT_STEP,
-  READER_PRESETS,
-  ReaderPreset,
+  READER_FONTS,
 } from '../../../core/models/document.model';
 
 const STORAGE_KEY = 'epub-reader-settings';
@@ -73,24 +67,19 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   // --- Reader settings signals ---
   fontSize = signal<number>(DEFAULT_READER_SETTINGS.fontSize);
-  margin = signal<number>(DEFAULT_READER_SETTINGS.margin);
   lineHeight = signal<number>(DEFAULT_READER_SETTINGS.lineHeight);
+  fontFamily = signal<string>(DEFAULT_READER_SETTINGS.fontFamily);
   theme = signal<ThemeOption>(DEFAULT_READER_SETTINGS.theme);
   settingsOpen = signal<boolean>(false);
 
-  // --- Slider constraints ---
+  // --- Control constraints ---
   readonly FONT_SIZE_MIN = FONT_SIZE_MIN;
-  readonly FONT_SIZE_MAX = FONT_SIZE_MAX;
   readonly FONT_SIZE_STEP = FONT_SIZE_STEP;
-  readonly MARGIN_MIN = MARGIN_MIN;
-  readonly MARGIN_MAX = MARGIN_MAX;
-  readonly MARGIN_STEP = MARGIN_STEP;
   readonly LINE_HEIGHT_MIN = LINE_HEIGHT_MIN;
-  readonly LINE_HEIGHT_MAX = LINE_HEIGHT_MAX;
   readonly LINE_HEIGHT_STEP = LINE_HEIGHT_STEP;
 
-  /** Presets for quick-select */
-  readonly presets: ReaderPreset[] = READER_PRESETS;
+  /** Available font families */
+  readonly fonts = READER_FONTS;
 
   /** Predefined theme options */
   readonly themeOptions: { label: string; value: ThemeOption }[] = [
@@ -243,32 +232,59 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // Control update methods
   // ---------------------------------------------------------------------------
 
-  /** Update font size and re-render via epub.js themes API */
-  updateFontSize(event: Event): void {
-    const size = +(event.target as HTMLInputElement).value;
-    this.fontSize.set(size);
+  /** Increase font size */
+  increaseFontSize(): void {
+    const current = this.fontSize();
+    const newSize = current + FONT_SIZE_STEP;
+    this.fontSize.set(newSize);
     if (this.rendition) {
-      this.rendition.themes.fontSize(`${size}px`);
+      this.rendition.themes.fontSize(`${newSize}px`);
     }
     this.saveSettings();
   }
 
-  /** Update horizontal margin and apply via epub.js theme overrides */
-  updateMargin(event: Event): void {
-    const px = +(event.target as HTMLInputElement).value;
-    this.margin.set(px);
+  /** Decrease font size */
+  decreaseFontSize(): void {
+    const current = this.fontSize();
+    if (current > FONT_SIZE_MIN) {
+      const newSize = current - FONT_SIZE_STEP;
+      this.fontSize.set(newSize);
+      if (this.rendition) {
+        this.rendition.themes.fontSize(`${newSize}px`);
+      }
+      this.saveSettings();
+    }
+  }
+
+  /** Increase line height */
+  increaseLineHeight(): void {
+    const current = this.lineHeight();
+    const newHeight = Math.round((current + LINE_HEIGHT_STEP) * 10) / 10;
+    this.lineHeight.set(newHeight);
     if (this.rendition) {
-      this.rendition.themes.override('padding', `0 ${px}px`);
+      this.rendition.themes.override('line-height', `${newHeight}`);
     }
     this.saveSettings();
   }
 
-  /** Update line height and apply via epub.js theme overrides */
-  updateLineHeight(event: Event): void {
-    const height = +(event.target as HTMLInputElement).value;
-    this.lineHeight.set(height);
+  /** Decrease line height */
+  decreaseLineHeight(): void {
+    const current = this.lineHeight();
+    if (current > LINE_HEIGHT_MIN) {
+      const newHeight = Math.round((current - LINE_HEIGHT_STEP) * 10) / 10;
+      this.lineHeight.set(newHeight);
+      if (this.rendition) {
+        this.rendition.themes.override('line-height', `${newHeight}`);
+      }
+      this.saveSettings();
+    }
+  }
+
+  /** Update font family */
+  updateFontFamily(font: string): void {
+    this.fontFamily.set(font);
     if (this.rendition) {
-      this.rendition.themes.override('line-height', `${height}`);
+      this.rendition.themes.override('font-family', font);
     }
     this.saveSettings();
   }
@@ -278,35 +294,23 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.theme.set(value);
     if (this.rendition) {
       this.rendition.themes.select(value);
-      // Re-apply margin & line-height overrides since theme change resets them
-      this.applyMarginAndLineHeight();
+      // Re-apply line-height and font-family overrides since theme change resets them
+      this.applyLineHeightAndFont();
     }
     this.applyHostTheme(value);
-    this.saveSettings();
-  }
-
-  /** Apply a named preset (Compact, Comfortable, Spacious) */
-  applyPreset(preset: ReaderPreset): void {
-    this.fontSize.set(preset.settings.fontSize);
-    this.margin.set(preset.settings.margin);
-    this.lineHeight.set(preset.settings.lineHeight);
-    if (this.rendition) {
-      this.rendition.themes.fontSize(`${preset.settings.fontSize}px`);
-      this.applyMarginAndLineHeight();
-    }
     this.saveSettings();
   }
 
   /** Reset all settings to factory defaults */
   resetToDefaults(): void {
     this.fontSize.set(DEFAULT_READER_SETTINGS.fontSize);
-    this.margin.set(DEFAULT_READER_SETTINGS.margin);
     this.lineHeight.set(DEFAULT_READER_SETTINGS.lineHeight);
+    this.fontFamily.set(DEFAULT_READER_SETTINGS.fontFamily);
     this.theme.set(DEFAULT_READER_SETTINGS.theme);
     if (this.rendition) {
       this.rendition.themes.fontSize(`${DEFAULT_READER_SETTINGS.fontSize}px`);
       this.rendition.themes.select(DEFAULT_READER_SETTINGS.theme);
-      this.applyMarginAndLineHeight();
+      this.applyLineHeightAndFont();
     }
     this.applyHostTheme(DEFAULT_READER_SETTINGS.theme);
     this.saveSettings();
@@ -319,19 +323,17 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   /**
    * Register all three reader themes with epub.js.
    * Each theme supplies body-level styles that control background, text colour,
-   * margin, and line height so the book content matches the selected theme.
+   * and line height so the book content matches the selected theme.
    */
   private registerThemes(): void {
     if (!this.rendition) return;
 
-    const margin = this.margin();
     const lh = this.lineHeight();
 
     this.rendition.themes.register('light', {
       body: {
         background: '#ffffff',
         color: '#000000',
-        padding: `0 ${margin}px`,
         'line-height': `${lh}`,
       },
     });
@@ -340,7 +342,6 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       body: {
         background: '#1a1a1a',
         color: '#e0e0e0',
-        padding: `0 ${margin}px`,
         'line-height': `${lh}`,
       },
     });
@@ -349,7 +350,6 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       body: {
         background: '#f4f1ea',
         color: '#5f4b32',
-        padding: `0 ${margin}px`,
         'line-height': `${lh}`,
       },
     });
@@ -365,16 +365,15 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
     this.rendition.themes.fontSize(`${this.fontSize()}px`);
     this.rendition.themes.select(this.theme());
-    this.applyMarginAndLineHeight();
+    this.applyLineHeightAndFont();
     this.applyHostTheme(this.theme());
   }
 
-  /** Re-apply margin & line-height overrides (needed after theme selection) */
-  private applyMarginAndLineHeight(): void {
+  /** Re-apply line-height and font-family overrides (needed after theme selection) */
+  private applyLineHeightAndFont(): void {
     if (!this.rendition) return;
-    const px = this.margin();
-    this.rendition.themes.override('padding', `0 ${px}px`);
     this.rendition.themes.override('line-height', `${this.lineHeight()}`);
+    this.rendition.themes.override('font-family', this.fontFamily());
   }
 
   /**
@@ -396,8 +395,8 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   private saveSettings(): void {
     const settings: ReaderSettings = {
       fontSize: this.fontSize(),
-      margin: this.margin(),
       lineHeight: this.lineHeight(),
+      fontFamily: this.fontFamily(),
       theme: this.theme(),
     };
     try {
@@ -414,8 +413,8 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       if (raw) {
         const saved: Partial<ReaderSettings> = JSON.parse(raw);
         if (saved.fontSize) this.fontSize.set(saved.fontSize);
-        if (saved.margin) this.margin.set(saved.margin);
         if (saved.lineHeight) this.lineHeight.set(saved.lineHeight);
+        if (saved.fontFamily) this.fontFamily.set(saved.fontFamily);
         if (saved.theme) this.theme.set(saved.theme);
       }
     } catch {
