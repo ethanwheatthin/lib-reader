@@ -30,7 +30,8 @@
   transform: translate(-50%, -50%);
   z-index: 1001;
   width: min(90vw, 400px);
-  max-height: 80vh;
+  min-height: 590px;
+  max-height: 590px;
   display: flex;
   flex-direction: column;
   background: var(--panel-bg);
