@@ -48,9 +48,17 @@ export const documentsFeature = createFeature({
       ...state,
       selectedDocumentId: id
     })),
-    on(DocumentsActions.updateReadingProgress, (state, { id, page, cfi }) =>
+    on(DocumentsActions.updateReadingProgress, (state, { id, page, cfi, progressPercent }) =>
       adapter.updateOne(
-        { id, changes: { currentPage: page, lastOpened: new Date(), ...(cfi ? { currentCfi: cfi } : {}) } },
+        {
+          id,
+          changes: {
+            currentPage: page,
+            lastOpened: new Date(),
+            ...(cfi ? { currentCfi: cfi } : {}),
+            ...(progressPercent != null ? { readingProgressPercent: progressPercent } : {}),
+          },
+        },
         state
       )
     ),

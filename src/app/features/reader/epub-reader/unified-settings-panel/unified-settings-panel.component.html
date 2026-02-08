@@ -213,6 +213,19 @@
             </div>
           </div>
 
+          <!-- Reading progress -->
+          @if (progressPercent !== null && progressPercent >= 0) {
+            <div class="reading-progress-section">
+              <h4 class="section-title">📈 Book Progress</h4>
+              <div class="progress-overview">
+                <div class="progress-bar-track">
+                  <div class="progress-bar-fill" [style.width.%]="progressPercent"></div>
+                </div>
+                <span class="progress-text">{{ progressPercent }}% complete</span>
+              </div>
+            </div>
+          }
+
           <!-- Reading stats -->
           @if (readingStats && readingStats.totalReadingTime > 0) {
             <div class="reading-stats-section">

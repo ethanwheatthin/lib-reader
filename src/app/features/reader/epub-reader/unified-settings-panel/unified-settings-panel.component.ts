@@ -45,6 +45,7 @@ export class UnifiedSettingsPanelComponent {
   @Input() readingStats: ReadingStats | null = null;
   @Input() readingGoal: ReadingGoal | null = null;
   @Input() todayReadingTime: number | null = null;
+  @Input() progressPercent: number | null = null;
 
   // Outputs
   @Output() close = new EventEmitter<void>();

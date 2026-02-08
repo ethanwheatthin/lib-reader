@@ -36,7 +36,9 @@ export const selectSelectedDocumentBookmarks = createSelector(
 export const selectReadingProgress = createSelector(
   selectSelectedDocument,
   (doc): number => {
-    if (!doc || !doc.currentPage || !doc.totalPages || doc.totalPages === 0) return 0;
+    if (!doc) return 0;
+    if (doc.readingProgressPercent != null) return doc.readingProgressPercent;
+    if (!doc.currentPage || !doc.totalPages || doc.totalPages === 0) return 0;
     return Math.round((doc.currentPage / doc.totalPages) * 100);
   }
 );
@@ -89,6 +91,7 @@ export const selectTodayReadingTime = createSelector(
 export const selectDocumentProgress = (id: string) =>
   createSelector(selectDocumentEntities, (entities): number => {
     const doc = entities[id];
+    if (doc?.readingProgressPercent != null) return doc.readingProgressPercent;
     if (!doc || !doc.currentPage || !doc.totalPages || doc.totalPages === 0) return 0;
     return Math.round((doc.currentPage / doc.totalPages) * 100);
   });

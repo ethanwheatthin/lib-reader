@@ -121,10 +121,15 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   }
 
   private updateProgress(): void {
+    const progressPercent =
+      this.totalPages > 0
+        ? Math.round((this.currentPage / this.totalPages) * 100)
+        : undefined;
     this.store.dispatch(
       DocumentsActions.updateReadingProgress({
         id: this.documentId,
-        page: this.currentPage
+        page: this.currentPage,
+        progressPercent,
       })
     );
   }

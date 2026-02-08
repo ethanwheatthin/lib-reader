@@ -120,7 +120,7 @@
                       <span class="fallback-title">{{ doc.title }}</span>
                     </div>
                   }
-                  @if (doc.currentPage && doc.totalPages) {
+                  @if (doc.readingProgressPercent || (doc.currentPage && doc.totalPages)) {
                     <div class="cover-progress">
                       <div class="cover-progress-fill" [style.width.%]="getProgress(doc)"></div>
                     </div>
@@ -168,7 +168,7 @@
                   <span class="list-title">{{ doc.title }}</span>
                   <span class="list-author">{{ getAuthor(doc) }}</span>
                 </div>
-                @if (doc.currentPage && doc.totalPages) {
+                @if (doc.readingProgressPercent || (doc.currentPage && doc.totalPages)) {
                   <div class="list-progress">
                     <div class="list-progress-bar">
                       <div class="list-progress-fill" [style.width.%]="getProgress(doc)"></div>

@@ -80,6 +80,8 @@ export interface Document {
   bookmarks: Bookmark[];
   readingStats: ReadingStats;
   readingGoal?: ReadingGoal;
+  /** Overall reading progress as a percentage (0–100) */
+  readingProgressPercent?: number;
   /** Book metadata from Open Library or user edits */
   metadata?: BookMetadata;
 }

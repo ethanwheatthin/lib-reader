@@ -30,6 +30,7 @@ import {
 } from '../../../core/models/document.model';
 
 const STORAGE_KEY = 'epub-reader-settings';
+const LOCATIONS_CACHE_PREFIX = 'epub-locations-';
 
 @Component({
   selector: 'app-epub-reader',
@@ -61,6 +62,9 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   isCurrentLocationBookmarked = signal<boolean>(false);
 
+  // --- Page info toggle ---
+  showProgress = signal<boolean>(false);
+
   // --- Unified panel state ---
   panelOpen = signal<boolean>(false);
 
@@ -73,6 +77,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   private sessionStartPage = 0;
   private currentPageNumber = 0;
   private currentCfi = '';
+  private locationsReady = false;
 
   // --- Reader settings signals ---
   fontSize = signal<number>(DEFAULT_READER_SETTINGS.fontSize);
@@ -140,10 +145,26 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         // Apply persisted settings once the rendition is ready
         this.applyAllSettings();
 
+        // Dispatch the previously saved progress immediately so the UI
+        // shows the last-known percentage without waiting for locations
+        if (metadata?.readingProgressPercent != null) {
+          this.store.dispatch(
+            DocumentsActions.updateReadingProgress({
+              id: this.documentId,
+              page: metadata.currentPage ?? 0,
+              cfi: metadata.currentCfi,
+              progressPercent: metadata.readingProgressPercent,
+            })
+          );
+        }
+
         // Track location changes
         this.rendition.on('relocated', (location: any) => {
           this.updateLocation(location);
         });
+
+        // Try to load cached locations for instant progress, otherwise generate
+        await this.loadOrGenerateLocations();
       }
     } catch (error) {
       console.error('Error loading EPUB:', error);
@@ -179,6 +200,10 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   togglePanel(): void {
     this.panelOpen.update(open => !open);
+  }
+
+  togglePageInfo(): void {
+    this.showProgress.update(v => !v);
   }
 
   // ---------------------------------------------------------------------------
@@ -336,6 +361,44 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Load cached locations from localStorage or generate them.
+   * Caching avoids the expensive ~5 s generation on every book open.
+   */
+  private async loadOrGenerateLocations(): Promise<void> {
+    if (!this.book) return;
+
+    const cacheKey = LOCATIONS_CACHE_PREFIX + this.documentId;
+
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        this.book.locations.load(cached);
+        this.locationsReady = true;
+        // Re-dispatch progress now that locations are available
+        const loc = this.rendition?.currentLocation();
+        if (loc) this.updateLocation(loc);
+        return;
+      }
+    } catch {
+      // Cache miss or corrupt — fall through to generate
+    }
+
+    // Generate in the background (increased granularity for speed)
+    this.book.locations.generate(1600).then(() => {
+      this.locationsReady = true;
+      // Cache for next time
+      try {
+        localStorage.setItem(cacheKey, this.book.locations.save());
+      } catch {
+        // localStorage full — non-critical
+      }
+      // Re-dispatch with accurate progress
+      const loc = this.rendition?.currentLocation();
+      if (loc) this.updateLocation(loc);
+    });
+  }
+
   onChapterSelect(chapter: TocItem): void {
     if (this.rendition) {
       this.rendition.display(chapter.href);
@@ -453,6 +516,17 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       );
     }).unsubscribe();
 
+    // Calculate overall book progress percentage
+    let progressPercent: number | undefined;
+    if (this.locationsReady && this.book?.locations?.length() > 0 && this.currentCfi) {
+      progressPercent = Math.round(
+        this.book.locations.percentageFromCfi(this.currentCfi) * 100
+      );
+    } else if (location.start.percentage != null) {
+      // Spine-based percentage — available instantly from epub.js
+      progressPercent = Math.round(location.start.percentage * 100);
+    }
+
     // Save progress
     if (location.start.displayed.page) {
       this.store.dispatch(
@@ -460,6 +534,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
           id: this.documentId,
           page: location.start.displayed.page,
           cfi: this.currentCfi,
+          progressPercent,
         })
       );
     }

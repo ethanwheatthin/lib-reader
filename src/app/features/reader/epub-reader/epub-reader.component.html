@@ -13,6 +13,7 @@
     [readingStats]="(readingStats$ | async) ?? null"
     [readingGoal]="(readingGoal$ | async) ?? null"
     [todayReadingTime]="(todayReadingTime$ | async) ?? null"
+    [progressPercent]="(readingProgress$ | async) ?? null"
     (close)="togglePanel()"
     (settingsChange)="onSettingsChange($event)"
     (chapterSelect)="onChapterSelect($event)"
@@ -33,7 +34,16 @@
     </button>
 
     <button (click)="prevPage()" [disabled]="!canGoPrev" aria-label="Previous page">Previous</button>
-    <span class="page-info">{{ currentLocation }}</span>
+    <span
+      class="page-info"
+      (click)="togglePageInfo()"
+      title="Click to toggle progress">
+      @if (showProgress()) {
+        {{ (readingProgress$ | async) ?? 0 }}% complete
+      } @else {
+        {{ currentLocation }}
+      }
+    </span>
     <button (click)="nextPage()" [disabled]="!canGoNext" aria-label="Next page">Next</button>
 
     @if (estimatedTimeRemaining$ | async; as eta) {

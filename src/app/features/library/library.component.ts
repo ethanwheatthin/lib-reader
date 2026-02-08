@@ -88,6 +88,7 @@ export class LibraryComponent implements OnInit {
   }
 
   getProgress(doc: Document): number {
+    if (doc.readingProgressPercent != null) return doc.readingProgressPercent;
     if (!doc.currentPage || !doc.totalPages || doc.totalPages === 0) return 0;
     return Math.round((doc.currentPage / doc.totalPages) * 100);
   }

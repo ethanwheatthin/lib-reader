@@ -68,8 +68,8 @@ export class DocumentsEffects {
   updateReadingProgress$ = createEffect(() =>
     this.actions$.pipe(
       ofType(DocumentsActions.updateReadingProgress),
-      mergeMap(({ id, page, cfi }) =>
-        from(this.updateMetadata(id, { currentPage: page, ...(cfi ? { currentCfi: cfi } : {}) })).pipe(
+      mergeMap(({ id, page, cfi, progressPercent }) =>
+        from(this.updateMetadata(id, { currentPage: page, ...(cfi ? { currentCfi: cfi } : {}), ...(progressPercent != null ? { readingProgressPercent: progressPercent } : {}) })).pipe(
           map(() => ({ type: 'NO_ACTION' as const }))
         )
       )

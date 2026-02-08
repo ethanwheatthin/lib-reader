@@ -12,7 +12,7 @@ export const DocumentsActions = createActionGroup({
     'Delete Document': props<{ id: string }>(),
     'Delete Document Success': props<{ id: string }>(),
     'Open Document': props<{ id: string }>(),
-    'Update Reading Progress': props<{ id: string; page: number; cfi?: string }>(),
+    'Update Reading Progress': props<{ id: string; page: number; cfi?: string; progressPercent?: number }>(),
 
     // Bookmark actions
     'Add Bookmark': props<{ id: string; bookmark: Bookmark }>(),
