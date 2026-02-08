@@ -11,8 +11,32 @@
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+  position: relative;
 }
 
+/* ========================================================================
+   Reading Progress Bar
+   ======================================================================== */
+.progress-bar-container {
+  height: 4px;
+  background: #e0e0e0;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 6;
+  cursor: default;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #007bff;
+  transition: width 0.4s ease;
+  border-radius: 0 2px 2px 0;
+  min-width: 0;
+}
+
+/* ========================================================================
+   Controls
+   ======================================================================== */
 .reader-controls {
   display: flex;
   justify-content: center;
@@ -22,6 +46,7 @@
   background: #f8f9fa;
   border-bottom: 1px solid #ddd;
   flex-shrink: 0;
+  position: relative;
 }
 
 .reader-controls button {
@@ -48,6 +73,249 @@
   border-radius: 4px;
 }
 
+/* ========================================================================
+   Bookmark toggle
+   ======================================================================== */
+.bookmark-toggle {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.4rem 0.6rem !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-size: 1.3rem;
+  line-height: 1;
+  border-radius: 50% !important;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.bookmark-toggle:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+.bookmark-toggle.bookmarked {
+  animation: bookmarkPop 0.3s ease;
+}
+
+@keyframes bookmarkPop {
+  0% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-50%) scale(1.3); }
+  100% { transform: translateY(-50%) scale(1); }
+}
+
+/* ========================================================================
+   Bookmarks list toggle
+   ======================================================================== */
+.bookmarks-list-toggle {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.4rem 0.6rem !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-size: 1.3rem;
+  line-height: 1;
+  border-radius: 50% !important;
+  transition: background 0.15s;
+}
+
+.bookmarks-list-toggle:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ========================================================================
+   ETA Badge
+   ======================================================================== */
+.eta-badge {
+  font-size: 0.75rem;
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ========================================================================
+   Bookmarks Panel
+   ======================================================================== */
+.bookmarks-panel {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  width: 320px;
+  max-width: 90vw;
+  max-height: calc(100% - 80px);
+  z-index: 20;
+  background: #ffffff;
+  color: #333;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: panelFadeIn 0.2s ease-out;
+}
+
+@keyframes panelFadeIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bookmarks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
+}
+
+.bookmarks-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.15rem;
+  cursor: pointer;
+  color: inherit;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.bookmarks-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+  padding: 0.5rem 0;
+}
+
+.bookmarks-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  opacity: 0.55;
+  font-size: 0.9rem;
+}
+
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.bookmark-item:hover {
+  background: rgba(0, 123, 255, 0.06);
+}
+
+.bookmark-label {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bookmark-date {
+  font-size: 0.72rem;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+.bookmark-remove {
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.4;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  line-height: 1;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.bookmark-remove:hover {
+  opacity: 1;
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+/* ========================================================================
+   Reading Stats Summary
+   ======================================================================== */
+.reading-stats-summary,
+.reading-goal-summary {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #e5e5e5;
+}
+
+.reading-stats-summary h4,
+.reading-goal-summary h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.7;
+}
+
+.stats-grid {
+  display: flex;
+  gap: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  opacity: 0.55;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.goal-streak {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.streak-flame {
+  font-size: 1.2rem;
+}
+
+.streak-count {
+  font-weight: 600;
+}
+
+/* ========================================================================
+   Canvas
+   ======================================================================== */
 .canvas-wrapper {
   flex: 1;
   overflow: auto;

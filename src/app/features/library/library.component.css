@@ -55,6 +55,68 @@ h1 {
   margin: 0.25rem 0;
 }
 
+/* ========================================================================
+   Card Progress Bar
+   ======================================================================== */
+.card-progress-bar {
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.card-progress-fill {
+  height: 100%;
+  background: #007bff;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.doc-meta {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+/* ========================================================================
+   Card Badges
+   ======================================================================== */
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  background: #f0f0f0;
+  color: #555;
+  white-space: nowrap;
+}
+
+.bookmark-badge {
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+}
+
+.time-badge {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.streak-badge {
+  background: rgba(255, 153, 0, 0.12);
+  color: #e67e00;
+}
+
 .card-actions {
   display: flex;
   gap: 0.5rem;
@@ -77,6 +139,15 @@ button {
 
 .btn-primary:hover {
   background-color: #0056b3;
+}
+
+.btn-resume {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-resume:hover {
+  background-color: #218838;
 }
 
 .btn-danger {

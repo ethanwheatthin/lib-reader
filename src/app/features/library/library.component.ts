@@ -45,4 +45,17 @@ export class LibraryComponent implements OnInit {
   formatDate(date: Date): string {
     return new Date(date).toLocaleDateString();
   }
+
+  getProgress(doc: Document): number {
+    if (!doc.currentPage || !doc.totalPages || doc.totalPages === 0) return 0;
+    return Math.round((doc.currentPage / doc.totalPages) * 100);
+  }
+
+  formatDuration(ms: number): string {
+    const totalMinutes = Math.floor(ms / 60000);
+    if (totalMinutes < 60) return `${totalMinutes}m`;
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${hours}h ${mins}m`;
+  }
 }

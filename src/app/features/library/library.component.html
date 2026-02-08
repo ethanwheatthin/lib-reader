@@ -15,16 +15,36 @@
         <h3>{{ doc.title }}</h3>
         <p class="doc-type">{{ doc.type | uppercase }}</p>
         <p class="doc-size">{{ formatFileSize(doc.fileSize) }}</p>
-        @if (doc.lastOpened) {
+        @if (doc.currentPage && doc.totalPages) {
+          <div class="card-progress-bar" [attr.title]="getProgress(doc) + '% complete'">
+            <div class="card-progress-fill" [style.width.%]="getProgress(doc)"></div>
+          </div>
           <p class="doc-progress">
-            Last opened: {{ formatDate(doc.lastOpened) }}
-            @if (doc.currentPage && doc.totalPages) {
-              <br>Page {{ doc.currentPage }} / {{ doc.totalPages }}
-            }
+            Page {{ doc.currentPage }} / {{ doc.totalPages }} · {{ getProgress(doc) }}%
           </p>
         }
+        @if (doc.lastOpened) {
+          <p class="doc-meta">
+            Last opened: {{ formatDate(doc.lastOpened) }}
+          </p>
+        }
+        <div class="card-badges">
+          @if (doc.bookmarks && doc.bookmarks.length > 0) {
+            <span class="badge bookmark-badge" title="Bookmarks">🔖 {{ doc.bookmarks.length }}</span>
+          }
+          @if (doc.readingStats && doc.readingStats.totalReadingTime > 0) {
+            <span class="badge time-badge" title="Total reading time">⏱️ {{ formatDuration(doc.readingStats.totalReadingTime) }}</span>
+          }
+          @if (doc.readingGoal && doc.readingGoal.currentStreak > 0) {
+            <span class="badge streak-badge" title="Reading streak">🔥 {{ doc.readingGoal.currentStreak }}d</span>
+          }
+        </div>
         <div class="card-actions">
-          <button (click)="openDocument(doc.id)" class="btn-primary">Open</button>
+          @if (doc.currentPage && doc.currentPage > 1) {
+            <button (click)="openDocument(doc.id)" class="btn-resume">▶ Resume</button>
+          } @else {
+            <button (click)="openDocument(doc.id)" class="btn-primary">Open</button>
+          }
           <button (click)="deleteDocument(doc.id)" class="btn-danger">Delete</button>
         </div>
       </div>

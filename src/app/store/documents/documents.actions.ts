@@ -1,5 +1,5 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
-import { Document } from '../../core/models/document.model';
+import { Document, Bookmark, ReadingSession, ReadingGoal } from '../../core/models/document.model';
 
 export const DocumentsActions = createActionGroup({
   source: 'Documents',
@@ -12,6 +12,19 @@ export const DocumentsActions = createActionGroup({
     'Delete Document': props<{ id: string }>(),
     'Delete Document Success': props<{ id: string }>(),
     'Open Document': props<{ id: string }>(),
-    'Update Reading Progress': props<{ id: string; page: number }>()
+    'Update Reading Progress': props<{ id: string; page: number; cfi?: string }>(),
+
+    // Bookmark actions
+    'Add Bookmark': props<{ id: string; bookmark: Bookmark }>(),
+    'Remove Bookmark': props<{ id: string; bookmarkId: string }>(),
+    'Update Bookmark': props<{ id: string; bookmarkId: string; note: string }>(),
+
+    // Reading session tracking
+    'Start Reading Session': props<{ id: string }>(),
+    'End Reading Session': props<{ id: string; session: ReadingSession }>(),
+
+    // Reading goals
+    'Set Reading Goal': props<{ id: string; goal: ReadingGoal }>(),
+    'Update Reading Streak': props<{ id: string }>(),
   }
 });

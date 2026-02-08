@@ -6,6 +6,16 @@ import ePub from 'epubjs';
 import { IndexDBService } from '../../../core/services/indexdb.service';
 import { DocumentsActions } from '../../../store/documents/documents.actions';
 import {
+  selectSelectedDocumentBookmarks,
+  selectReadingProgress,
+  selectEstimatedTimeRemaining,
+  selectReadingStats,
+  selectReadingGoal,
+  selectTodayReadingTime,
+} from '../../../store/documents/documents.selectors';
+import {
+  Bookmark,
+  ReadingSession,
   ReaderSettings,
   DEFAULT_READER_SETTINGS,
   ThemeOption,
@@ -43,6 +53,23 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   currentLocation = '';
   canGoPrev = false;
   canGoNext = true;
+
+  // --- Bookmarks & progress from store ---
+  bookmarks$ = this.store.select(selectSelectedDocumentBookmarks);
+  readingProgress$ = this.store.select(selectReadingProgress);
+  estimatedTimeRemaining$ = this.store.select(selectEstimatedTimeRemaining);
+  readingStats$ = this.store.select(selectReadingStats);
+  readingGoal$ = this.store.select(selectReadingGoal);
+  todayReadingTime$ = this.store.select(selectTodayReadingTime);
+
+  bookmarksOpen = signal<boolean>(false);
+  isCurrentLocationBookmarked = signal<boolean>(false);
+
+  // --- Reading session tracking ---
+  private sessionStartTime: Date | null = null;
+  private sessionStartPage = 0;
+  private currentPageNumber = 0;
+  private currentCfi = '';
 
   // --- Reader settings signals ---
   fontSize = signal<number>(DEFAULT_READER_SETTINGS.fontSize);
@@ -83,6 +110,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.loadSettings();
+    this.startReadingSession();
 
     try {
       const blob = await this.indexDB.getFile(this.documentId);
@@ -100,7 +128,13 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         // Register all themes before displaying so they are ready to use
         this.registerThemes();
 
-        await this.rendition.display();
+        // Resume from saved position if available
+        const metadata = await this.indexDB.getMetadata(this.documentId);
+        if (metadata?.currentCfi) {
+          await this.rendition.display(metadata.currentCfi);
+        } else {
+          await this.rendition.display();
+        }
 
         // Apply persisted settings once the rendition is ready
         this.applyAllSettings();
@@ -116,6 +150,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.endReadingSession();
     if (this.rendition) {
       this.rendition.destroy();
     }
@@ -389,6 +424,95 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   }
 
   // ---------------------------------------------------------------------------
+  // Bookmarks
+  // ---------------------------------------------------------------------------
+
+  toggleBookmarksPanel(): void {
+    this.bookmarksOpen.update((open) => !open);
+  }
+
+  toggleBookmarkAtCurrentLocation(): void {
+    if (!this.currentCfi) return;
+
+    // Check if already bookmarked
+    let alreadyBookmarked = false;
+    let existingBookmarkId = '';
+    this.bookmarks$.subscribe((bookmarks) => {
+      const existing = bookmarks.find((b) => b.location === this.currentCfi);
+      if (existing) {
+        alreadyBookmarked = true;
+        existingBookmarkId = existing.id;
+      }
+    }).unsubscribe();
+
+    if (alreadyBookmarked) {
+      this.store.dispatch(
+        DocumentsActions.removeBookmark({ id: this.documentId, bookmarkId: existingBookmarkId })
+      );
+      this.isCurrentLocationBookmarked.set(false);
+    } else {
+      const bookmark: Bookmark = {
+        id: crypto.randomUUID(),
+        location: this.currentCfi,
+        label: this.currentLocation || 'Bookmark',
+        createdAt: new Date(),
+      };
+      this.store.dispatch(DocumentsActions.addBookmark({ id: this.documentId, bookmark }));
+      this.isCurrentLocationBookmarked.set(true);
+    }
+  }
+
+  jumpToBookmark(bookmark: Bookmark): void {
+    if (this.rendition) {
+      this.rendition.display(bookmark.location);
+      this.bookmarksOpen.set(false);
+    }
+  }
+
+  removeBookmark(bookmarkId: string, event: Event): void {
+    event.stopPropagation();
+    this.store.dispatch(
+      DocumentsActions.removeBookmark({ id: this.documentId, bookmarkId })
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reading session tracking
+  // ---------------------------------------------------------------------------
+
+  private startReadingSession(): void {
+    this.sessionStartTime = new Date();
+    this.sessionStartPage = this.currentPageNumber;
+    this.store.dispatch(DocumentsActions.startReadingSession({ id: this.documentId }));
+  }
+
+  private endReadingSession(): void {
+    if (!this.sessionStartTime) return;
+    const now = new Date();
+    const duration = now.getTime() - this.sessionStartTime.getTime();
+    // Only record sessions > 5 seconds
+    if (duration < 5000) return;
+
+    const session: ReadingSession = {
+      startedAt: this.sessionStartTime,
+      endedAt: now,
+      duration,
+      pagesRead: Math.max(0, this.currentPageNumber - this.sessionStartPage),
+    };
+    this.store.dispatch(DocumentsActions.endReadingSession({ id: this.documentId, session }));
+    this.sessionStartTime = null;
+  }
+
+  /** Format milliseconds into a human-readable duration */
+  formatDuration(ms: number): string {
+    const totalMinutes = Math.floor(ms / 60000);
+    if (totalMinutes < 60) return `${totalMinutes}m`;
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${hours}h ${mins}m`;
+  }
+
+  // ---------------------------------------------------------------------------
   // Location tracking (existing)
   // ---------------------------------------------------------------------------
 
@@ -400,12 +524,26 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.canGoPrev = !location.atStart;
     this.canGoNext = !location.atEnd;
 
+    // Track CFI and page for bookmarks / session
+    this.currentCfi = location.start.cfi ?? '';
+    if (location.start.displayed.page) {
+      this.currentPageNumber = location.start.displayed.page;
+    }
+
+    // Check if current location is bookmarked
+    this.bookmarks$.subscribe((bookmarks) => {
+      this.isCurrentLocationBookmarked.set(
+        bookmarks.some((b) => b.location === this.currentCfi)
+      );
+    }).unsubscribe();
+
     // Save progress
     if (location.start.displayed.page) {
       this.store.dispatch(
         DocumentsActions.updateReadingProgress({
           id: this.documentId,
           page: location.start.displayed.page,
+          cfi: this.currentCfi,
         })
       );
     }

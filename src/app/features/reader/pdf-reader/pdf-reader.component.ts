@@ -1,10 +1,19 @@
-import { Component, Input, inject, OnInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { Component, Input, inject, OnInit, OnDestroy, ElementRef, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import * as pdfjsLib from 'pdfjs-dist';
 import { IndexDBService } from '../../../core/services/indexdb.service';
 import { DocumentsActions } from '../../../store/documents/documents.actions';
+import {
+  selectSelectedDocumentBookmarks,
+  selectReadingProgress,
+  selectEstimatedTimeRemaining,
+  selectReadingStats,
+  selectReadingGoal,
+  selectTodayReadingTime,
+} from '../../../store/documents/documents.selectors';
+import { Bookmark, ReadingSession } from '../../../core/models/document.model';
 
 @Component({
   selector: 'app-pdf-reader',
@@ -25,9 +34,25 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   totalPages = 0;
   scale = 1.5;
 
+  // --- Bookmarks & progress from store ---
+  bookmarks$ = this.store.select(selectSelectedDocumentBookmarks);
+  readingProgress$ = this.store.select(selectReadingProgress);
+  estimatedTimeRemaining$ = this.store.select(selectEstimatedTimeRemaining);
+  readingStats$ = this.store.select(selectReadingStats);
+  readingGoal$ = this.store.select(selectReadingGoal);
+  todayReadingTime$ = this.store.select(selectTodayReadingTime);
+
+  bookmarksOpen = signal<boolean>(false);
+  isCurrentPageBookmarked = signal<boolean>(false);
+
+  // --- Reading session tracking ---
+  private sessionStartTime: Date | null = null;
+  private sessionStartPage = 0;
+
   async ngOnInit(): Promise<void> {
     // Set worker path - needs to point to the worker file in node_modules
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    this.startReadingSession();
     
     try {
       const blob = await this.indexDB.getFile(this.documentId);
@@ -43,6 +68,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
         }
         
         await this.renderPage(this.currentPage);
+        this.checkBookmarkState();
       }
     } catch (error) {
       console.error('Error loading PDF:', error);
@@ -50,6 +76,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.endReadingSession();
     if (this.pdfDoc) {
       this.pdfDoc.destroy();
     }
@@ -76,6 +103,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
       this.currentPage++;
       await this.renderPage(this.currentPage);
       this.updateProgress();
+      this.checkBookmarkState();
     }
   }
 
@@ -84,6 +112,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
       this.currentPage--;
       await this.renderPage(this.currentPage);
       this.updateProgress();
+      this.checkBookmarkState();
     }
   }
 
@@ -98,5 +127,103 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
         page: this.currentPage
       })
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bookmarks
+  // ---------------------------------------------------------------------------
+
+  toggleBookmarksPanel(): void {
+    this.bookmarksOpen.update((open) => !open);
+  }
+
+  toggleBookmarkAtCurrentPage(): void {
+    const pageStr = String(this.currentPage);
+    let alreadyBookmarked = false;
+    let existingBookmarkId = '';
+
+    this.bookmarks$.subscribe((bookmarks) => {
+      const existing = bookmarks.find((b) => b.location === pageStr);
+      if (existing) {
+        alreadyBookmarked = true;
+        existingBookmarkId = existing.id;
+      }
+    }).unsubscribe();
+
+    if (alreadyBookmarked) {
+      this.store.dispatch(
+        DocumentsActions.removeBookmark({ id: this.documentId, bookmarkId: existingBookmarkId })
+      );
+      this.isCurrentPageBookmarked.set(false);
+    } else {
+      const bookmark: Bookmark = {
+        id: crypto.randomUUID(),
+        location: pageStr,
+        label: `Page ${this.currentPage}`,
+        createdAt: new Date(),
+      };
+      this.store.dispatch(DocumentsActions.addBookmark({ id: this.documentId, bookmark }));
+      this.isCurrentPageBookmarked.set(true);
+    }
+  }
+
+  async jumpToBookmark(bookmark: Bookmark): Promise<void> {
+    const page = parseInt(bookmark.location, 10);
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+      await this.renderPage(page);
+      this.updateProgress();
+      this.checkBookmarkState();
+      this.bookmarksOpen.set(false);
+    }
+  }
+
+  removeBookmark(bookmarkId: string, event: Event): void {
+    event.stopPropagation();
+    this.store.dispatch(
+      DocumentsActions.removeBookmark({ id: this.documentId, bookmarkId })
+    );
+    this.checkBookmarkState();
+  }
+
+  private checkBookmarkState(): void {
+    const pageStr = String(this.currentPage);
+    this.bookmarks$.subscribe((bookmarks) => {
+      this.isCurrentPageBookmarked.set(bookmarks.some((b) => b.location === pageStr));
+    }).unsubscribe();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reading session tracking
+  // ---------------------------------------------------------------------------
+
+  private startReadingSession(): void {
+    this.sessionStartTime = new Date();
+    this.sessionStartPage = this.currentPage;
+    this.store.dispatch(DocumentsActions.startReadingSession({ id: this.documentId }));
+  }
+
+  private endReadingSession(): void {
+    if (!this.sessionStartTime) return;
+    const now = new Date();
+    const duration = now.getTime() - this.sessionStartTime.getTime();
+    if (duration < 5000) return;
+
+    const session: ReadingSession = {
+      startedAt: this.sessionStartTime,
+      endedAt: now,
+      duration,
+      pagesRead: Math.max(0, this.currentPage - this.sessionStartPage),
+    };
+    this.store.dispatch(DocumentsActions.endReadingSession({ id: this.documentId, session }));
+    this.sessionStartTime = null;
+  }
+
+  formatDuration(ms: number): string {
+    const totalMinutes = Math.floor(ms / 60000);
+    if (totalMinutes < 60) return `${totalMinutes}m`;
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${hours}h ${mins}m`;
   }
 }

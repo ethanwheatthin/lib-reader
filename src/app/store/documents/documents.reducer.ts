@@ -48,11 +48,98 @@ export const documentsFeature = createFeature({
       ...state,
       selectedDocumentId: id
     })),
-    on(DocumentsActions.updateReadingProgress, (state, { id, page }) =>
+    on(DocumentsActions.updateReadingProgress, (state, { id, page, cfi }) =>
       adapter.updateOne(
-        { id, changes: { currentPage: page, lastOpened: new Date() } },
+        { id, changes: { currentPage: page, lastOpened: new Date(), ...(cfi ? { currentCfi: cfi } : {}) } },
         state
       )
-    )
+    ),
+
+    // --- Bookmark reducers ---
+    on(DocumentsActions.addBookmark, (state, { id, bookmark }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      return adapter.updateOne(
+        { id, changes: { bookmarks: [...entity.bookmarks, bookmark] } },
+        state
+      );
+    }),
+    on(DocumentsActions.removeBookmark, (state, { id, bookmarkId }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      return adapter.updateOne(
+        { id, changes: { bookmarks: entity.bookmarks.filter(b => b.id !== bookmarkId) } },
+        state
+      );
+    }),
+    on(DocumentsActions.updateBookmark, (state, { id, bookmarkId, note }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      return adapter.updateOne(
+        {
+          id,
+          changes: {
+            bookmarks: entity.bookmarks.map(b =>
+              b.id === bookmarkId ? { ...b, note } : b
+            ),
+          },
+        },
+        state
+      );
+    }),
+
+    // --- Reading session reducers ---
+    on(DocumentsActions.endReadingSession, (state, { id, session }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      const stats = entity.readingStats;
+      const sessions = [...stats.sessions, session].slice(-30); // keep last 30
+      return adapter.updateOne(
+        {
+          id,
+          changes: {
+            readingStats: {
+              ...stats,
+              totalReadingTime: stats.totalReadingTime + session.duration,
+              sessions,
+              firstOpenedAt: stats.firstOpenedAt ?? session.startedAt,
+            },
+          },
+        },
+        state
+      );
+    }),
+
+    // --- Reading goal reducers ---
+    on(DocumentsActions.setReadingGoal, (state, { id, goal }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      return adapter.updateOne({ id, changes: { readingGoal: goal } }, state);
+    }),
+    on(DocumentsActions.updateReadingStreak, (state, { id }) => {
+      const entity = state.entities[id];
+      if (!entity || !entity.readingGoal) return state;
+      const today = new Date().toISOString().slice(0, 10);
+      const goal = entity.readingGoal;
+      if (goal.completedDays.includes(today)) return state;
+
+      // Check if yesterday was completed for streak
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const hadYesterday = goal.completedDays.includes(yesterday);
+
+      return adapter.updateOne(
+        {
+          id,
+          changes: {
+            readingGoal: {
+              ...goal,
+              completedDays: [...goal.completedDays, today].slice(-90), // keep 90 days
+              currentStreak: hadYesterday ? goal.currentStreak + 1 : 1,
+            },
+          },
+        },
+        state
+      );
+    })
   )
 });

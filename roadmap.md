@@ -3,13 +3,13 @@
 
 ## Phase 1: Core Reading Experience Enhancements
 
-### Bookmarks & Progress Tracking
-- Visual bookmark indicators
-- Quick jump to bookmarks
-- Reading progress bar for entire book
-- Estimated time remaining in chapter/book
-- Reading statistics (time spent, pages per session)
-- Reading goals and streaks
+### Bookmarks & Progress Tracking ✅
+- ~~Visual bookmark indicators~~
+- ~~Quick jump to bookmarks~~
+- ~~Reading progress bar for entire book~~
+- ~~Estimated time remaining in chapter/book~~
+- ~~Reading statistics (time spent, pages per session)~~
+- ~~Reading goals and streaks~~
 
 ### Annotations & Highlights
 - Text selection and highlighting with multiple color options

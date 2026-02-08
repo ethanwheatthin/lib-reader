@@ -1,3 +1,40 @@
+export interface Bookmark {
+  id: string;
+  /** For EPUB: CFI string; for PDF: page number */
+  location: string;
+  /** Human-readable label (page number, chapter title, etc.) */
+  label: string;
+  createdAt: Date;
+  /** Optional user-provided note */
+  note?: string;
+}
+
+export interface ReadingSession {
+  startedAt: Date;
+  endedAt: Date;
+  /** Duration in milliseconds */
+  duration: number;
+  pagesRead: number;
+}
+
+export interface ReadingStats {
+  /** Total reading time in milliseconds */
+  totalReadingTime: number;
+  /** Reading sessions history (last 30 kept) */
+  sessions: ReadingSession[];
+  /** Date of the first reading session */
+  firstOpenedAt?: Date;
+}
+
+export interface ReadingGoal {
+  /** Daily reading goal in minutes */
+  dailyMinutes: number;
+  /** ISO date strings of days the goal was met */
+  completedDays: string[];
+  /** Current streak length */
+  currentStreak: number;
+}
+
 export interface Document {
   id: string;
   title: string;
@@ -7,6 +44,11 @@ export interface Document {
   lastOpened?: Date;
   currentPage?: number;
   totalPages?: number;
+  /** EPUB-specific: CFI of last reading position */
+  currentCfi?: string;
+  bookmarks: Bookmark[];
+  readingStats: ReadingStats;
+  readingGoal?: ReadingGoal;
 }
 
 export type ThemeOption = 'light' | 'dark' | 'sepia';
