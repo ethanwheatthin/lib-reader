@@ -140,6 +140,31 @@ export const documentsFeature = createFeature({
         },
         state
       );
+    }),
+
+    // --- Metadata reducers ---
+    on(DocumentsActions.updateBookMetadata, (state, { id, metadata }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      return adapter.updateOne(
+        { id, changes: { metadata } },
+        state
+      );
+    }),
+    on(DocumentsActions.fetchMetadataSuccess, (state, { id, metadata }) => {
+      const entity = state.entities[id];
+      if (!entity) return state;
+      return adapter.updateOne(
+        { 
+          id, 
+          changes: { 
+            metadata: { ...entity.metadata, ...metadata },
+            // Update title if not manually set
+            title: metadata.title || entity.title
+          } 
+        },
+        state
+      );
     })
   )
 });

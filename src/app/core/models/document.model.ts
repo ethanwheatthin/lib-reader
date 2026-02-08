@@ -43,6 +43,29 @@ export interface ReadingGoal {
   currentStreak: number;
 }
 
+export interface BookMetadata {
+  /** Book title (can be edited) */
+  title?: string;
+  /** Author name(s) */
+  author?: string;
+  /** Publisher */
+  publisher?: string;
+  /** Publication year */
+  publishYear?: string;
+  /** ISBN-10 or ISBN-13 */
+  isbn?: string;
+  /** Cover image URL */
+  coverUrl?: string;
+  /** Description/synopsis */
+  description?: string;
+  /** Number of pages (from metadata) */
+  pageCount?: number;
+  /** Subject/genres */
+  subjects?: string[];
+  /** Fetched from Open Library */
+  openLibraryKey?: string;
+}
+
 export interface Document {
   id: string;
   title: string;
@@ -57,6 +80,8 @@ export interface Document {
   bookmarks: Bookmark[];
   readingStats: ReadingStats;
   readingGoal?: ReadingGoal;
+  /** Book metadata from Open Library or user edits */
+  metadata?: BookMetadata;
 }
 
 export type ThemeOption = 'light' | 'dark' | 'sepia';

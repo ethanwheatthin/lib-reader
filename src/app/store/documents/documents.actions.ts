@@ -1,5 +1,5 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
-import { Document, Bookmark, ReadingSession, ReadingGoal } from '../../core/models/document.model';
+import { Document, Bookmark, ReadingSession, ReadingGoal, BookMetadata } from '../../core/models/document.model';
 
 export const DocumentsActions = createActionGroup({
   source: 'Documents',
@@ -26,5 +26,10 @@ export const DocumentsActions = createActionGroup({
     // Reading goals
     'Set Reading Goal': props<{ id: string; goal: ReadingGoal }>(),
     'Update Reading Streak': props<{ id: string }>(),
+
+    // Metadata actions
+    'Update Book Metadata': props<{ id: string; metadata: BookMetadata }>(),
+    'Fetch Metadata From Open Library': props<{ id: string; title: string }>(),
+    'Fetch Metadata Success': props<{ id: string; metadata: BookMetadata }>(),
   }
 });

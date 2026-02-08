@@ -1,0 +1,112 @@
+<div class="modal-backdrop" (click)="onBackdropClick($event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Edit Book Details</h2>
+      <button class="btn-close" (click)="onClose()" aria-label="Close">×</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Cover Preview -->
+      @if (metadata.coverUrl) {
+        <div class="cover-preview">
+          <img [src]="metadata.coverUrl" [alt]="metadata.title || 'Book cover'" />
+        </div>
+      }
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <label for="search-title">Search Open Library</label>
+        <div class="search-input-group">
+          <input 
+            id="search-title"
+            type="text" 
+            [(ngModel)]="metadata.title"
+            placeholder="Enter book title..."
+            (keyup.enter)="searchByTitle()"
+          />
+          <button 
+            class="btn-search" 
+            (click)="searchByTitle()"
+            [disabled]="isSearching"
+          >
+            {{ isSearching ? 'Searching...' : 'Search' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Results -->
+      @if (showSearchResults) {
+        <div class="search-results">
+          <h3>Search Results</h3>
+          <div class="results-list">
+            @for (result of searchResults; track result.openLibraryKey) {
+              <div class="result-item" (click)="selectSearchResult(result)">
+                @if (result.coverUrl) {
+                  <img [src]="result.coverUrl" [alt]="result.title" class="result-cover" />
+                } @else {
+                  <div class="result-cover-placeholder">📚</div>
+                }
+                <div class="result-info">
+                  <div class="result-title">{{ result.title }}</div>
+                  @if (result.author) {
+                    <div class="result-author">{{ result.author }}</div>
+                  }
+                  @if (result.publishYear) {
+                    <div class="result-year">{{ result.publishYear }}</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Manual Edit Form -->
+      <div class="form-section">
+        <h3>Book Information</h3>
+        
+        <div class="form-group">
+          <label for="author">Author</label>
+          <input id="author" type="text" [(ngModel)]="metadata.author" placeholder="Author name" />
+        </div>
+
+        <div class="form-group">
+          <label for="publisher">Publisher</label>
+          <input id="publisher" type="text" [(ngModel)]="metadata.publisher" placeholder="Publisher" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="publishYear">Year</label>
+            <input id="publishYear" type="text" [(ngModel)]="metadata.publishYear" placeholder="2024" />
+          </div>
+
+          <div class="form-group">
+            <label for="isbn">ISBN</label>
+            <input id="isbn" type="text" [(ngModel)]="metadata.isbn" placeholder="ISBN" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="coverUrl">Cover URL</label>
+          <input id="coverUrl" type="url" [(ngModel)]="metadata.coverUrl" placeholder="https://..." />
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea 
+            id="description" 
+            [(ngModel)]="metadata.description" 
+            placeholder="Book description..."
+            rows="4"
+          ></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="onClose()">Cancel</button>
+      <button class="btn-primary" (click)="onSave()">Save Changes</button>
+    </div>
+  </div>
+</div>
