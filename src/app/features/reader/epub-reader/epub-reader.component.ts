@@ -5,6 +5,8 @@ import { Store } from '@ngrx/store';
 import ePub from 'epubjs';
 import { IndexDBService } from '../../../core/services/indexdb.service';
 import { DocumentsActions } from '../../../store/documents/documents.actions';
+import { ReadingProgressComponent } from './reading-progress/reading-progress.component';
+import { DraggableSettingsComponent, SettingsState } from './draggable-settings/draggable-settings.component';
 import {
   selectSelectedDocumentBookmarks,
   selectReadingProgress,
@@ -31,7 +33,7 @@ const STORAGE_KEY = 'epub-reader-settings';
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReadingProgressComponent, DraggableSettingsComponent],
   templateUrl: './epub-reader.component.html',
   styleUrl: './epub-reader.component.css'
 })
@@ -88,14 +90,15 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     { label: 'Sepia', value: 'sepia' },
   ];
 
-  // --- Dragging state ---
-  isDragging = false;
-  panelX = signal<number | null>(null);
-  panelY = signal<number | null>(null);
-  private dragOffsetX = 0;
-  private dragOffsetY = 0;
-  private boundOnDragMove = this.onDragMove.bind(this);
-  private boundOnDragEnd = this.onDragEnd.bind(this);
+  // Settings state as a computed object for child component
+  get currentSettings(): SettingsState {
+    return {
+      fontSize: this.fontSize(),
+      lineHeight: this.lineHeight(),
+      fontFamily: this.fontFamily(),
+      theme: this.theme()
+    };
+  }
 
   async ngOnInit(): Promise<void> {
     this.loadSettings();
@@ -143,11 +146,6 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     if (this.rendition) {
       this.rendition.destroy();
     }
-    // Clean up any lingering drag listeners
-    document.removeEventListener('mousemove', this.boundOnDragMove);
-    document.removeEventListener('mouseup', this.boundOnDragEnd);
-    document.removeEventListener('touchmove', this.boundOnDragMove);
-    document.removeEventListener('touchend', this.boundOnDragEnd);
   }
 
   // ---------------------------------------------------------------------------
@@ -172,149 +170,30 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   toggleSettings(): void {
     this.settingsOpen.update(open => !open);
-    // Reset panel position when re-opening
-    if (this.settingsOpen()) {
-      this.panelX.set(null);
-      this.panelY.set(null);
-    }
   }
 
   // ---------------------------------------------------------------------------
-  // Dragging logic
+  // Settings change handler from child component
   // ---------------------------------------------------------------------------
 
-  onDragStart(event: MouseEvent | TouchEvent): void {
-    const panel = (event.target as HTMLElement).closest('.settings-panel') as HTMLElement | null;
-    if (!panel) return;
+  onSettingsChange(newSettings: SettingsState): void {
+    // Update local signals
+    this.fontSize.set(newSettings.fontSize);
+    this.lineHeight.set(newSettings.lineHeight);
+    this.fontFamily.set(newSettings.fontFamily);
+    this.theme.set(newSettings.theme);
 
-    this.isDragging = true;
-    const rect = panel.getBoundingClientRect();
-    if (event instanceof MouseEvent) {
-      this.dragOffsetX = event.clientX - rect.left;
-      this.dragOffsetY = event.clientY - rect.top;
-    } else {
-      const touch = event.touches[0];
-      this.dragOffsetX = touch.clientX - rect.left;
-      this.dragOffsetY = touch.clientY - rect.top;
-    }
-
-    document.addEventListener('mousemove', this.boundOnDragMove);
-    document.addEventListener('mouseup', this.boundOnDragEnd);
-    document.addEventListener('touchmove', this.boundOnDragMove, { passive: false });
-    document.addEventListener('touchend', this.boundOnDragEnd);
-    event.preventDefault();
-  }
-
-  private onDragMove(event: MouseEvent | TouchEvent): void {
-    if (!this.isDragging) return;
-    let clientX: number, clientY: number;
-    if (event instanceof MouseEvent) {
-      clientX = event.clientX;
-      clientY = event.clientY;
-    } else {
-      clientX = event.touches[0].clientX;
-      clientY = event.touches[0].clientY;
-      event.preventDefault();
-    }
-    this.panelX.set(clientX - this.dragOffsetX);
-    this.panelY.set(clientY - this.dragOffsetY);
-  }
-
-  private onDragEnd(): void {
-    this.isDragging = false;
-    document.removeEventListener('mousemove', this.boundOnDragMove);
-    document.removeEventListener('mouseup', this.boundOnDragEnd);
-    document.removeEventListener('touchmove', this.boundOnDragMove);
-    document.removeEventListener('touchend', this.boundOnDragEnd);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Control update methods
-  // ---------------------------------------------------------------------------
-
-  /** Increase font size */
-  increaseFontSize(): void {
-    const current = this.fontSize();
-    const newSize = current + FONT_SIZE_STEP;
-    this.fontSize.set(newSize);
+    // Apply to rendition
     if (this.rendition) {
-      this.rendition.themes.fontSize(`${newSize}px`);
-    }
-    this.saveSettings();
-  }
-
-  /** Decrease font size */
-  decreaseFontSize(): void {
-    const current = this.fontSize();
-    if (current > FONT_SIZE_MIN) {
-      const newSize = current - FONT_SIZE_STEP;
-      this.fontSize.set(newSize);
-      if (this.rendition) {
-        this.rendition.themes.fontSize(`${newSize}px`);
-      }
-      this.saveSettings();
-    }
-  }
-
-  /** Increase line height */
-  increaseLineHeight(): void {
-    const current = this.lineHeight();
-    const newHeight = Math.round((current + LINE_HEIGHT_STEP) * 10) / 10;
-    this.lineHeight.set(newHeight);
-    if (this.rendition) {
-      this.rendition.themes.override('line-height', `${newHeight}`);
-    }
-    this.saveSettings();
-  }
-
-  /** Decrease line height */
-  decreaseLineHeight(): void {
-    const current = this.lineHeight();
-    if (current > LINE_HEIGHT_MIN) {
-      const newHeight = Math.round((current - LINE_HEIGHT_STEP) * 10) / 10;
-      this.lineHeight.set(newHeight);
-      if (this.rendition) {
-        this.rendition.themes.override('line-height', `${newHeight}`);
-      }
-      this.saveSettings();
-    }
-  }
-
-  /** Update font family */
-  updateFontFamily(font: string): void {
-    this.fontFamily.set(font);
-    if (this.rendition) {
-      this.rendition.themes.override('font-family', font);
-    }
-    this.saveSettings();
-  }
-
-  /** Switch the active theme (light / dark / sepia) */
-  updateTheme(value: ThemeOption): void {
-    this.theme.set(value);
-    if (this.rendition) {
-      this.rendition.themes.select(value);
-      // Re-apply line-height and font-family overrides since theme change resets them
+      this.rendition.themes.fontSize(`${newSettings.fontSize}px`);
+      this.rendition.themes.select(newSettings.theme);
       this.applyLineHeightAndFont();
     }
-    this.applyHostTheme(value);
+    this.applyHostTheme(newSettings.theme);
     this.saveSettings();
   }
 
-  /** Reset all settings to factory defaults */
-  resetToDefaults(): void {
-    this.fontSize.set(DEFAULT_READER_SETTINGS.fontSize);
-    this.lineHeight.set(DEFAULT_READER_SETTINGS.lineHeight);
-    this.fontFamily.set(DEFAULT_READER_SETTINGS.fontFamily);
-    this.theme.set(DEFAULT_READER_SETTINGS.theme);
-    if (this.rendition) {
-      this.rendition.themes.fontSize(`${DEFAULT_READER_SETTINGS.fontSize}px`);
-      this.rendition.themes.select(DEFAULT_READER_SETTINGS.theme);
-      this.applyLineHeightAndFont();
-    }
-    this.applyHostTheme(DEFAULT_READER_SETTINGS.theme);
-    this.saveSettings();
-  }
+
 
   // ---------------------------------------------------------------------------
   // epub.js theme registration

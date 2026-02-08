@@ -1,0 +1,36 @@
+/* ========================================================================
+   Reading Progress Bar
+   ======================================================================== */
+.progress-bar-container {
+  height: 3px;
+  background: rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 6;
+  cursor: default;
+}
+
+.progress-bar-container[data-theme='dark'] {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.progress-bar-container[data-theme='sepia'] {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--gradient-primary);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0;
+  min-width: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.progress-bar-container[data-theme='dark'] .progress-bar-fill {
+  background: #5b9cff;
+}
+
+.progress-bar-container[data-theme='sepia'] .progress-bar-fill {
+  background: #8b6914;
+}

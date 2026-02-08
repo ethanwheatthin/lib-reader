@@ -1,8 +1,6 @@
 <div class="epub-container" [attr.data-theme]="theme()">
   <!-- Reading progress bar -->
-  <div class="progress-bar-container" [attr.title]="'Reading progress: ' + (readingProgress$ | async) + '%'">
-    <div class="progress-bar-fill" [style.width.%]="readingProgress$ | async"></div>
-  </div>
+  <app-reading-progress [progress]="readingProgress$ | async" [theme]="theme()"></app-reading-progress>
 
   
 
@@ -72,114 +70,14 @@
     </aside>
   }
 
-  <!-- Floating / draggable settings panel (no backdrop — non-blocking) -->
-  @if (settingsOpen()) {
-    <aside
-      class="settings-panel"
-      role="dialog"
-      aria-label="Reader settings"
-      [style.left.px]="panelX()"
-      [style.top.px]="panelY()"
-      [class.positioned]="panelX() !== null">
-      <!-- Drag handle -->
-      <header
-        class="settings-header"
-        (mousedown)="onDragStart($event)"
-        (touchstart)="onDragStart($event)">
-        <span class="drag-grip" aria-hidden="true">⠿</span>
-        <h3>Reader Settings</h3>
-        <button class="close-btn" (click)="toggleSettings()" aria-label="Close settings">✕</button>
-      </header>
-
-      <!-- Font Family -->
-      <div class="settings-section">
-        <span class="section-label">Font</span>
-        <div class="font-buttons">
-          @for (font of fonts; track font) {
-            <button
-              class="font-btn"
-              [class.selected]="fontFamily() === font"
-              [style.font-family]="font"
-              (click)="updateFontFamily(font)"
-              [attr.aria-pressed]="fontFamily() === font"
-              [attr.aria-label]="font + ' font'">
-              {{ font }}
-            </button>
-          }
-        </div>
-      </div>
-
-      <!-- Font Size with plus/minus buttons -->
-      <div class="settings-section">
-        <div class="control-header">
-          <span class="section-label">Font Size</span>
-          <div class="control-buttons">
-            <button
-              class="control-btn"
-              (click)="decreaseFontSize()"
-              [disabled]="fontSize() <= FONT_SIZE_MIN"
-              aria-label="Decrease font size">
-              −
-            </button>
-            <span class="control-value">{{ fontSize() }}px</span>
-            <button
-              class="control-btn"
-              (click)="increaseFontSize()"
-              aria-label="Increase font size">
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Line Height with plus/minus buttons -->
-      <div class="settings-section">
-        <div class="control-header">
-          <span class="section-label">Line Height</span>
-          <div class="control-buttons">
-            <button
-              class="control-btn"
-              (click)="decreaseLineHeight()"
-              [disabled]="lineHeight() <= LINE_HEIGHT_MIN"
-              aria-label="Decrease line height">
-              −
-            </button>
-            <span class="control-value">{{ lineHeight() }}</span>
-            <button
-              class="control-btn"
-              (click)="increaseLineHeight()"
-              aria-label="Increase line height">
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Theme -->
-      <div class="settings-section">
-        <span class="section-label">Theme</span>
-        <div class="theme-buttons" role="radiogroup" aria-label="Reader theme">
-          @for (opt of themeOptions; track opt.value) {
-            <button
-              class="theme-btn theme-btn--{{ opt.value }}"
-              [class.selected]="theme() === opt.value"
-              (click)="updateTheme(opt.value)"
-              [attr.aria-pressed]="theme() === opt.value"
-              [attr.aria-label]="opt.label + ' theme'">
-              {{ opt.label }}
-            </button>
-          }
-        </div>
-      </div>
-
-      <!-- Reset -->
-      <div class="settings-section reset-section">
-        <button class="reset-btn" (click)="resetToDefaults()" aria-label="Reset to default settings">
-          ↺ Reset to Defaults
-        </button>
-      </div>
-    </aside>
-  }
+  <!-- Draggable settings panel -->
+  <app-draggable-settings
+    [isOpen]="settingsOpen()"
+    [settings]="currentSettings"
+    [theme]="theme()"
+    (settingsChange)="onSettingsChange($event)"
+    (close)="toggleSettings()">
+  </app-draggable-settings>
 
   <div #viewer class="epub-viewer"></div>
   <!-- Top bar: navigation + settings toggle -->
