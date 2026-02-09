@@ -99,6 +99,8 @@ export interface ReaderSettings {
   spreadMode: SpreadMode;
   focusMode: boolean;
   followMode: boolean;
+  /** Follow mode speed in words per minute (WPM) */
+  followModeSpeed: number;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
@@ -110,6 +112,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   spreadMode: 'none',
   focusMode: false,
   followMode: false,
+  followModeSpeed: 250, // Default 250 WPM (average reading speed)
 };
 
 /** Control constraints */
@@ -131,3 +134,8 @@ export const READER_FONTS = [
   'Arial',
   'Cambria',
 ];
+
+/** Follow mode constraints */
+export const FOLLOW_MODE_SPEED_MIN = 100; // Min 100 WPM
+export const FOLLOW_MODE_SPEED_MAX = 600; // Max 600 WPM
+export const FOLLOW_MODE_SPEED_STEP = 50; // Adjust by 50 WPM

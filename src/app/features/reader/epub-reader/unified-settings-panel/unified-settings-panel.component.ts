@@ -12,7 +12,10 @@ import {
   FONT_SIZE_MIN, 
   FONT_SIZE_STEP, 
   LINE_HEIGHT_MIN, 
-  LINE_HEIGHT_STEP 
+  LINE_HEIGHT_STEP,
+  FOLLOW_MODE_SPEED_MIN,
+  FOLLOW_MODE_SPEED_MAX,
+  FOLLOW_MODE_SPEED_STEP
 } from '../../../../core/models/document.model';
 
 export interface SettingsState {
@@ -24,6 +27,7 @@ export interface SettingsState {
   spreadMode: SpreadMode;
   focusMode: boolean;
   followMode: boolean;
+  followModeSpeed: number;
 }
 
 export type TabType = 'settings' | 'chapters' | 'bookmarks';
@@ -68,6 +72,9 @@ export class UnifiedSettingsPanelComponent {
   readonly FONT_SIZE_STEP = FONT_SIZE_STEP;
   readonly LINE_HEIGHT_MIN = LINE_HEIGHT_MIN;
   readonly LINE_HEIGHT_STEP = LINE_HEIGHT_STEP;
+  readonly FOLLOW_MODE_SPEED_MIN = FOLLOW_MODE_SPEED_MIN;
+  readonly FOLLOW_MODE_SPEED_MAX = FOLLOW_MODE_SPEED_MAX;
+  readonly FOLLOW_MODE_SPEED_STEP = FOLLOW_MODE_SPEED_STEP;
 
   /** Available font families */
   readonly fonts = READER_FONTS;
@@ -208,6 +215,22 @@ export class UnifiedSettingsPanelComponent {
 
   toggleFollowMode(): void {
     this.emitSettings({ ...this.settings, followMode: !this.settings.followMode });
+  }
+
+  increaseFollowSpeed(): void {
+    const newSpeed = Math.min(
+      this.settings.followModeSpeed + FOLLOW_MODE_SPEED_STEP,
+      FOLLOW_MODE_SPEED_MAX
+    );
+    this.emitSettings({ ...this.settings, followModeSpeed: newSpeed });
+  }
+
+  decreaseFollowSpeed(): void {
+    const newSpeed = Math.max(
+      this.settings.followModeSpeed - FOLLOW_MODE_SPEED_STEP,
+      FOLLOW_MODE_SPEED_MIN
+    );
+    this.emitSettings({ ...this.settings, followModeSpeed: newSpeed });
   }
 
   private emitSettings(newSettings: SettingsState): void {

@@ -72,8 +72,17 @@
   <!-- Follow mode indicator -->
   @if (followMode()) {
     <div class="follow-mode-indicator">
-      <span>Follow Mode</span>
-      <small>Use → and ← keys, ESC to exit</small>
+      <div class="follow-mode-header">
+        <span class="follow-mode-title">
+          {{ followModePaused() ? '⏸️ Follow Mode (Paused)' : '▶️ Follow Mode' }}
+        </span>
+        <span class="follow-mode-speed">{{ followModeSpeed() }} WPM</span>
+      </div>
+      <small class="follow-mode-controls">
+        <kbd>Space</kbd> {{ followModePaused() ? 'Resume' : 'Pause' }} • 
+        <kbd>←</kbd><kbd>→</kbd> Navigate • 
+        <kbd>Esc</kbd> Exit
+      </small>
     </div>
   }
 </div>

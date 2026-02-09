@@ -219,18 +219,45 @@
                 <span class="toggle-label">Focus Mode</span>
                 <span class="toggle-hint">F</span>
               </button>
-              <button
+              <!-- <button
                 class="toggle-btn"
                 [class.active]="settings.followMode"
                 (click)="toggleFollowMode()"
                 [attr.aria-pressed]="settings.followMode"
-                title="Highlight and follow text word by word (use arrow keys)">
+                title="Highlight and follow text word by word (auto-advances)">
                 <span class="toggle-icon">{{ settings.followMode ? '✓' : '' }}</span>
                 <span class="toggle-label">Follow Mode</span>
                 <span class="toggle-hint">→ ←</span>
-              </button>
+              </button> -->
             </div>
           </div>
+
+          <!-- Follow Mode Speed (only shown when follow mode is active) -->
+          @if (settings.followMode) {
+            <div class="settings-section follow-speed-section">
+              <div class="control-header">
+                <span class="section-label">Reading Speed</span>
+                <div class="control-buttons">
+                  <button
+                    class="control-btn"
+                    (click)="decreaseFollowSpeed()"
+                    [disabled]="settings.followModeSpeed <= FOLLOW_MODE_SPEED_MIN"
+                    aria-label="Decrease reading speed">
+                    −
+                  </button>
+                  <span class="control-value">{{ settings.followModeSpeed }} WPM</span>
+                  <button
+                    class="control-btn"
+                    (click)="increaseFollowSpeed()"
+                    [disabled]="settings.followModeSpeed >= FOLLOW_MODE_SPEED_MAX"
+                    aria-label="Increase reading speed">
+                    +
+                  </button>
+                </div>
+              </div>
+              <p class="speed-hint">Words per minute (100-600)</p>
+            </div>
+          }
 
         </div>
       }

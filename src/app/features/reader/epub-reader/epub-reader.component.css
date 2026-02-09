@@ -329,7 +329,7 @@
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 1.5rem;
   background: var(--gradient-primary);
   color: white;
   border-radius: var(--radius-md);
@@ -340,13 +340,46 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   animation: slideUpStay 0.3s ease-out;
+  min-width: 300px;
 }
 
-.follow-mode-indicator small {
+.follow-mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.follow-mode-title {
+  font-size: 1rem;
+}
+
+.follow-mode-speed {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.follow-mode-controls {
   font-size: 0.75rem;
-  opacity: 0.9;
+  opacity: 0.95;
+  line-height: 1.5;
+}
+
+.follow-mode-controls kbd {
+  background: rgba(255, 255, 255, 0.25);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 @keyframes slideUpStay {
@@ -406,8 +439,18 @@
   
   /* Adjust indicators for mobile */
   .follow-mode-indicator {
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
     font-size: 0.8rem;
+    min-width: 250px;
+  }
+  
+  .follow-mode-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .follow-mode-controls {
+    font-size: 0.7rem;
   }
   
   .focus-mode-badge {
