@@ -54,7 +54,9 @@
               [class.active]="(selectedShelfId$ | async) === null"
               (click)="selectShelf(null)"
               cdkDropList
+              [attr.data-shelf-id]="''"
               [cdkDropListData]="docs"
+              [cdkDropListConnectedTo]="['books-grid', 'books-list']"
               (cdkDropListDropped)="onBookDrop($event, null)"
             >
               @if (docs.length > 0 && getCoverImage(docs[0])) {
@@ -73,7 +75,9 @@
                   [class.active]="(selectedShelfId$ | async) === shelf.id"
                   (click)="selectShelf(shelf.id)"
                   cdkDropList
+                  [attr.data-shelf-id]="shelf.id"
                   [cdkDropListData]="docs"
+                  [cdkDropListConnectedTo]="['books-grid', 'books-list']"
                   (cdkDropListDropped)="onBookDrop($event, shelf.id)"
                 >
                   <span class="shelf-color-indicator" [style.background-color]="shelf.color"></span>
@@ -137,7 +141,7 @@
 
         <!-- Books Grid -->
         @if (viewMode === 'grid') {
-          <div class="books-grid" cdkDropListGroup>
+          <div class="books-grid" cdkDropList id="books-grid" [cdkDropListData]="documents" (cdkDropListDropped)="onMainListDropped($event)" cdkDropListGroup>
             @for (doc of documents; track doc.id) {
               <div
                 class="book-card"
@@ -145,7 +149,10 @@
                 (click)="openDocument(doc.id)"
                 cdkDrag
                 [cdkDragData]="doc.id"
+                (cdkDragStarted)="onDragStarted(doc.id)"
+                (cdkDragEnded)="onDragEnded(doc.id)"
               >
+                <button class="drag-handle" cdkDragHandle (click)="$event.stopPropagation()" title="Drag to shelf">⠿</button>
                 <div class="book-cover-wrapper">
                   @if (getCoverImage(doc)) {
                     <img class="book-cover-img" [src]="getCoverImage(doc)" [alt]="doc.title" />
@@ -189,14 +196,17 @@
 
         <!-- Books List -->
         @if (viewMode === 'list') {
-          <div class="books-list-view" cdkDropListGroup>
+          <div class="books-list-view" cdkDropList id="books-list" [cdkDropListData]="documents" (cdkDropListDropped)="onMainListDropped($event)" cdkDropListGroup>
             @for (doc of documents; track doc.id) {
               <div
                 class="list-row"
                 (click)="openDocument(doc.id)"
                 cdkDrag
                 [cdkDragData]="doc.id"
+                (cdkDragStarted)="onDragStarted(doc.id)"
+                (cdkDragEnded)="onDragEnded(doc.id)"
               >
+                <button class="drag-handle list-drag-handle" cdkDragHandle (click)="$event.stopPropagation()" title="Drag to shelf">⠿</button>
                 <div class="list-cover">
                   @if (getCoverImage(doc)) {
                     <img [src]="getCoverImage(doc)" [alt]="doc.title" />

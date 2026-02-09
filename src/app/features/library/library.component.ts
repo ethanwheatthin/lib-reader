@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Observable, map, combineLatest, BehaviorSubject } from 'rxjs';
-import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, CdkDragStart, CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
 import { Document, BookMetadata } from '../../core/models/document.model';
 import { Shelf } from '../../core/models/shelf.model';
@@ -49,6 +49,13 @@ export class LibraryComponent implements OnInit {
   openMenuId: string | null = null;
   
   private searchQuery$ = new BehaviorSubject<string>('');
+
+  // Runtime caches used for drag-drop fallback
+  private isDragging = false;
+  private lastPointerX = 0;
+  private lastPointerY = 0;
+  private currentDraggingDocId: string | null = null;
+  private currentDocuments: Document[] = [];
   
   filteredDocuments$: Observable<Document[]> = combineLatest([
     this.documents$,
@@ -68,7 +75,6 @@ export class LibraryComponent implements OnInit {
       
       // Filter by search query
       if (query.trim()) {
-    this.store.dispatch(ShelvesActions.loadShelves());
         const q = query.toLowerCase();
         filtered = filtered.filter(d => 
           d.title.toLowerCase().includes(q) ||
@@ -86,7 +92,13 @@ export class LibraryComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Load documents and shelves on component init
     this.store.dispatch(DocumentsActions.loadDocuments());
+    this.store.dispatch(ShelvesActions.loadShelves());
+
+    // Keep a small in-memory cache of documents to be able to perform
+    // drag-drop fallback updates without requiring an async selector read.
+    this.documents$.subscribe(docs => (this.currentDocuments = docs));
   }
 
   onSearchChange(): void {
@@ -98,8 +110,55 @@ export class LibraryComponent implements OnInit {
     this.openMenuId = this.openMenuId === id ? null : id;
   }
 
+  // When a drag finishes, a click event is still emitted on the dragged element.
+  // Use a short-lived flag to ignore clicks that immediately follow a drag/drop.
+  private recentlyDragged = false;
+
   openDocument(id: string): void {
+    // Ignore clicks that immediately follow a drag to prevent opening while dropping
+    if (this.recentlyDragged) return;
     this.router.navigate(['/reader', id]);
+  }
+
+  onDragStarted(docId: string): void {
+    this.recentlyDragged = true;
+    this.isDragging = true;
+    this.currentDraggingDocId = docId;
+  }
+
+  onDragEnded(docId: string): void {
+    // Keep the flag set briefly to swallow the click event fired on release
+    setTimeout(() => (this.recentlyDragged = false), 150);
+    this.isDragging = false;
+
+    // Fallback: if the CDK drop wasn't triggered (no onBookDrop), detect if the
+    // user released over a shelf and dispatch the move action directly.
+    try {
+      const el = document.elementFromPoint(this.lastPointerX, this.lastPointerY) as HTMLElement | null;
+      const shelfEl = el ? el.closest('.shelf-item') as HTMLElement | null : null;
+
+      if (shelfEl && this.currentDraggingDocId) {
+        const shelfIdAttr = shelfEl.getAttribute('data-shelf-id');
+        const targetShelfId = shelfIdAttr && shelfIdAttr.length > 0 ? shelfIdAttr : null;
+
+        const doc = this.currentDocuments.find(d => d.id === this.currentDraggingDocId);
+        if (doc) {
+          const fromShelfId = doc.shelfId || null;
+          if (fromShelfId !== targetShelfId) {            console.log('onDragEnded fallback: moving', { documentId: this.currentDraggingDocId, fromShelfId, targetShelfId });            this.store.dispatch(
+              ShelvesActions.moveDocumentToShelf({
+                documentId: this.currentDraggingDocId,
+                fromShelfId,
+                toShelfId: targetShelfId
+              })
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // elementFromPoint can throw in some testing environments; ignore.
+    }
+
+    this.currentDraggingDocId = null;
   }
 
   deleteDocument(id: string): void {
@@ -192,6 +251,22 @@ export class LibraryComponent implements OnInit {
     }
   }
 
+  @HostListener('document:mousemove', ['$event'])
+  onDocumentMouseMove(e: MouseEvent): void {
+    if (this.isDragging) {
+      this.lastPointerX = e.clientX;
+      this.lastPointerY = e.clientY;
+    }
+  }
+
+  @HostListener('document:touchmove', ['$event'])
+  onDocumentTouchMove(e: TouchEvent): void {
+    if (this.isDragging && e.touches && e.touches.length > 0) {
+      this.lastPointerX = e.touches[0].clientX;
+      this.lastPointerY = e.touches[0].clientY;
+    }
+  }
+
   getShelfDocumentCount(shelf: Shelf, documents: Document[]): number {
     return documents.filter(d => d.shelfId === shelf.id).length;
   }
@@ -203,6 +278,8 @@ export class LibraryComponent implements OnInit {
   // Drag and drop handling
   onBookDrop(event: CdkDragDrop<any>, targetShelfId: string | null): void {
     const documentId = event.item.data;
+    console.log('onBookDrop', { targetShelfId, documentId, previousContainer: event.previousContainer.id, container: event.container.id });
+
     const document = event.previousContainer.data.find((d: Document) => d.id === documentId);
     
     if (!document) return;
@@ -218,5 +295,11 @@ export class LibraryComponent implements OnInit {
         })
       );
     }
+  }
+
+  onMainListDropped(event: CdkDragDrop<any>): void {
+    // Currently we don't allow reordering in the main list; drops here are no-ops.
+    // Future: implement reordering via DocumentsActions.updateOrder
+    return;
   }
 }
