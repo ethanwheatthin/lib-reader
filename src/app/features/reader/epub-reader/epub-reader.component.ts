@@ -23,6 +23,8 @@ import {
   ThemeOption,
   FlowMode,
   SpreadMode,
+  ZoomLevel,
+  PageLayout,
   FONT_SIZE_MIN,
   FONT_SIZE_STEP,
   LINE_HEIGHT_MIN,
@@ -104,6 +106,8 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   focusMode = signal<boolean>(DEFAULT_READER_SETTINGS.focusMode);
   followMode = signal<boolean>(DEFAULT_READER_SETTINGS.followMode);
   followModeSpeed = signal<number>(DEFAULT_READER_SETTINGS.followModeSpeed);
+  zoomLevel = signal<ZoomLevel>(DEFAULT_READER_SETTINGS.zoomLevel);
+  pageLayout = signal<PageLayout>(DEFAULT_READER_SETTINGS.pageLayout);
 
   // --- Control constraints ---
   readonly FONT_SIZE_MIN = FONT_SIZE_MIN;
@@ -132,7 +136,9 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       spreadMode: this.spreadMode(),
       focusMode: this.focusMode(),
       followMode: this.followMode(),
-      followModeSpeed: this.followModeSpeed()
+      followModeSpeed: this.followModeSpeed(),
+      zoomLevel: this.zoomLevel(),
+      pageLayout: this.pageLayout(),
     };
   }
 
@@ -148,9 +154,9 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         this.book = ePub(arrayBuffer);
 
         this.rendition = this.book.renderTo(this.viewer.nativeElement, {
-          width: '100%',
-          height: '100%',
-          spread: this.spreadMode(),
+          width: this.viewer.nativeElement.clientWidth || '100%',
+          height: this.viewer.nativeElement.clientHeight || '100%',
+          spread: this.spreadFromPageLayout(this.pageLayout()),
           flow: this.flowMode(),
           allowScriptedContent: true,
         });
@@ -276,7 +282,12 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   onSettingsChange(newSettings: SettingsState): void {
     const needsRecreate = 
       this.flowMode() !== newSettings.flowMode || 
-      this.spreadMode() !== newSettings.spreadMode;
+      this.spreadMode() !== newSettings.spreadMode ||
+      this.pageLayout() !== newSettings.pageLayout;
+
+    // Map pageLayout to epub.js spread mode
+    const mappedSpread = this.spreadFromPageLayout(newSettings.pageLayout);
+    newSettings = { ...newSettings, spreadMode: mappedSpread };
 
     // Update local signals
     this.fontSize.set(newSettings.fontSize);
@@ -291,19 +302,27 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.followMode.set(newSettings.followMode);
     const followSpeedChanged = this.followModeSpeed() !== newSettings.followModeSpeed;
     this.followModeSpeed.set(newSettings.followModeSpeed);
+    const zoomChanged = this.zoomLevel() !== newSettings.zoomLevel;
+    this.zoomLevel.set(newSettings.zoomLevel);
+    this.pageLayout.set(newSettings.pageLayout);
 
     if (focusModeChanged) {
       this.focusModeChange.emit(newSettings.focusMode);
     }
 
     if (needsRecreate) {
-      // Flow/spread changes require recreating the rendition
+      // Flow/spread/pageLayout changes require recreating the rendition
       this.recreateRendition();
     } else if (this.rendition) {
       // Apply other settings without recreating
       this.rendition.themes.fontSize(`${newSettings.fontSize}px`);
       this.rendition.themes.select(newSettings.theme);
       this.applyLineHeightAndFont();
+    }
+
+    // Apply zoom independently (CSS-based, no rendition recreation needed)
+    if (zoomChanged) {
+      this.applyZoom();
     }
 
     // Handle follow mode toggle or speed change
@@ -375,6 +394,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.rendition.themes.select(this.theme());
     this.applyLineHeightAndFont();
     this.applyHostTheme(this.theme());
+    this.applyZoom();
   }
 
   /** Re-apply line-height and font-family overrides (needed after theme selection) */
@@ -395,6 +415,68 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Apply the selected zoom level via CSS transform on the viewer element.
+   * Percentage-based zooms scale the content while fit modes reset to default.
+   */
+  private applyZoom(): void {
+    const container = this.viewer?.nativeElement as HTMLElement;
+    if (!container) return;
+
+    const zoom = this.zoomLevel();
+    // Wrap the epub-viewer in a scrollable context for zoomed content
+    const parent = container.parentElement;
+
+    switch (zoom) {
+      case 'fit-width':
+        container.style.transform = '';
+        container.style.transformOrigin = '';
+        container.style.maxWidth = '100%';
+        container.style.width = '100%';
+        if (parent) parent.style.overflow = '';
+        break;
+      case 'fit-screen':
+        container.style.transform = '';
+        container.style.transformOrigin = '';
+        container.style.maxWidth = '';
+        container.style.width = '';
+        if (parent) parent.style.overflow = '';
+        break;
+      case '100':
+        container.style.transform = 'scale(1)';
+        container.style.transformOrigin = 'top center';
+        container.style.maxWidth = '';
+        container.style.width = '';
+        if (parent) parent.style.overflow = 'auto';
+        break;
+      case '200':
+        container.style.transform = 'scale(2)';
+        container.style.transformOrigin = 'top center';
+        container.style.maxWidth = '';
+        container.style.width = '';
+        if (parent) parent.style.overflow = 'auto';
+        break;
+      case '300':
+        container.style.transform = 'scale(3)';
+        container.style.transformOrigin = 'top center';
+        container.style.maxWidth = '';
+        container.style.width = '';
+        if (parent) parent.style.overflow = 'auto';
+        break;
+    }
+  }
+
+  /**
+   * Map the UI PageLayout value to an epub.js SpreadMode.
+   */
+  private spreadFromPageLayout(layout: PageLayout): SpreadMode {
+    switch (layout) {
+      case 'automatic': return 'auto';
+      case 'two-page':  return 'always';
+      case 'one-page':  return 'none';
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Persistence helpers
   // ---------------------------------------------------------------------------
@@ -411,6 +493,8 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       focusMode: this.focusMode(),
       followMode: this.followMode(),
       followModeSpeed: this.followModeSpeed(),
+      zoomLevel: this.zoomLevel(),
+      pageLayout: this.pageLayout(),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -434,6 +518,8 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         if (saved.focusMode != null) this.focusMode.set(saved.focusMode);
         if (saved.followMode != null) this.followMode.set(saved.followMode);
         if (saved.followModeSpeed) this.followModeSpeed.set(saved.followModeSpeed);
+        if (saved.zoomLevel) this.zoomLevel.set(saved.zoomLevel);
+        if (saved.pageLayout) this.pageLayout.set(saved.pageLayout);
       }
     } catch {
       console.warn('Could not load reader settings from localStorage');
@@ -796,14 +882,20 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
     const currentCfi = this.currentCfi;
     
-    // Destroy old rendition
+    // Destroy old rendition and clear DOM to prevent stale content overlap
     this.rendition.destroy();
+    this.viewer.nativeElement.innerHTML = '';
 
-    // Create new rendition with updated settings
+    // Wait a frame so the container has its final layout dimensions
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+    const rect = this.viewer.nativeElement.getBoundingClientRect();
+
+    // Create new rendition with explicit pixel dimensions
     this.rendition = this.book.renderTo(this.viewer.nativeElement, {
-      width: '100%',
-      height: '100%',
-      spread: this.spreadMode(),
+      width: rect.width,
+      height: rect.height,
+      spread: this.spreadFromPageLayout(this.pageLayout()),
       flow: this.flowMode(),
       allowScriptedContent: true,
     });

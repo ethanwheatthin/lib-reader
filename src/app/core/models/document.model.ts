@@ -89,6 +89,8 @@ export interface Document {
 export type ThemeOption = 'light' | 'dark' | 'sepia';
 export type FlowMode = 'paginated' | 'scrolled';
 export type SpreadMode = 'none' | 'auto' | 'always';
+export type ZoomLevel = 'fit-width' | 'fit-screen' | '100' | '200' | '300';
+export type PageLayout = 'automatic' | 'two-page' | 'one-page';
 
 export interface ReaderSettings {
   fontSize: number;
@@ -101,6 +103,10 @@ export interface ReaderSettings {
   followMode: boolean;
   /** Follow mode speed in words per minute (WPM) */
   followModeSpeed: number;
+  /** Zoom level for content scaling */
+  zoomLevel: ZoomLevel;
+  /** Page layout mode */
+  pageLayout: PageLayout;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
@@ -113,6 +119,8 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   focusMode: false,
   followMode: false,
   followModeSpeed: 250, // Default 250 WPM (average reading speed)
+  zoomLevel: 'fit-screen',
+  pageLayout: 'automatic',
 };
 
 /** Control constraints */

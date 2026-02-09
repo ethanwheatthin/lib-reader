@@ -4,6 +4,8 @@ import {
   ThemeOption, 
   FlowMode,
   SpreadMode,
+  ZoomLevel,
+  PageLayout,
   TocItem, 
   Bookmark, 
   ReadingGoal, 
@@ -28,6 +30,8 @@ export interface SettingsState {
   focusMode: boolean;
   followMode: boolean;
   followModeSpeed: number;
+  zoomLevel: ZoomLevel;
+  pageLayout: PageLayout;
 }
 
 export type TabType = 'settings' | 'chapters' | 'bookmarks';
@@ -67,6 +71,9 @@ export class UnifiedSettingsPanelComponent {
   // Tab state
   activeTab = signal<TabType>('settings');
 
+  // Zoom dropdown state
+  zoomDropdownOpen = signal<boolean>(false);
+
   // --- Control constraints ---
   readonly FONT_SIZE_MIN = FONT_SIZE_MIN;
   readonly FONT_SIZE_STEP = FONT_SIZE_STEP;
@@ -84,6 +91,22 @@ export class UnifiedSettingsPanelComponent {
     { label: 'Light', value: 'light' },
     { label: 'Dark', value: 'dark' },
     { label: 'Sepia', value: 'sepia' },
+  ];
+
+  /** Zoom level options */
+  readonly zoomOptions: { label: string; value: ZoomLevel }[] = [
+    { label: 'Fit to width', value: 'fit-width' },
+    { label: 'Fit to screen', value: 'fit-screen' },
+    { label: '100%', value: '100' },
+    { label: '200%', value: '200' },
+    { label: '300%', value: '300' },
+  ];
+
+  /** Page layout options */
+  readonly pageLayoutOptions: { label: string; value: PageLayout; icon: string }[] = [
+    { label: 'Automatic', value: 'automatic', icon: 'auto' },
+    { label: 'Two Page', value: 'two-page', icon: 'two-page' },
+    { label: 'One Page', value: 'one-page', icon: 'one-page' },
   ];
 
   // --- Dragging state ---
@@ -109,6 +132,15 @@ export class UnifiedSettingsPanelComponent {
 
   switchTab(tab: TabType): void {
     this.activeTab.set(tab);
+  }
+
+  toggleZoomDropdown(): void {
+    this.zoomDropdownOpen.update(v => !v);
+  }
+
+  selectZoomLevel(value: ZoomLevel): void {
+    this.zoomDropdownOpen.set(false);
+    this.updateZoomLevel(value);
   }
 
   // ---------------------------------------------------------------------------
@@ -207,6 +239,20 @@ export class UnifiedSettingsPanelComponent {
 
   updateSpreadMode(value: SpreadMode): void {
     this.emitSettings({ ...this.settings, spreadMode: value });
+  }
+
+  updateZoomLevel(value: ZoomLevel): void {
+    this.emitSettings({ ...this.settings, zoomLevel: value });
+  }
+
+  updatePageLayout(value: PageLayout): void {
+    this.emitSettings({ ...this.settings, pageLayout: value });
+  }
+
+  /** Label for the currently selected zoom level */
+  get currentZoomLabel(): string {
+    const opt = this.zoomOptions.find(o => o.value === this.settings.zoomLevel);
+    return opt?.label ?? 'Fit to screen';
   }
 
   toggleFocusMode(): void {

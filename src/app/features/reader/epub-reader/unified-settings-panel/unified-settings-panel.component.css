@@ -284,6 +284,121 @@
   font-style: italic;
 }
 
+/* Zoom dropdown */
+.zoom-dropdown-wrapper {
+  position: relative;
+}
+
+.zoom-dropdown-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--button-bg);
+  border: 2px solid var(--panel-border);
+  color: var(--panel-text);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.zoom-dropdown-trigger:hover {
+  background: var(--button-hover);
+  border-color: var(--panel-text);
+}
+
+.zoom-dropdown-arrow {
+  font-size: 0.85rem;
+  transition: transform 0.2s;
+}
+
+.zoom-dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.zoom-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  animation: dropdownFade 0.15s ease;
+}
+
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.zoom-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--panel-text);
+  transition: background 0.15s;
+}
+
+.zoom-dropdown-item:hover {
+  background: var(--button-hover);
+}
+
+.zoom-dropdown-item.selected {
+  font-weight: 600;
+}
+
+.zoom-check {
+  color: var(--accent-color, #007bff);
+  font-weight: 700;
+}
+
+/* Page layout icon buttons */
+.page-layout-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.page-layout-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: var(--button-bg);
+  border: 2px solid transparent;
+  color: var(--panel-text);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-layout-btn:hover {
+  background: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+.page-layout-btn.selected {
+  border-color: var(--accent-color, #007bff);
+  background: var(--button-active);
+}
+
+.page-layout-btn svg {
+  width: 28px;
+  height: 28px;
+}
+
 .theme-buttons {
   display: flex;
   gap: 0.5rem;
