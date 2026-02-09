@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { of, from } from 'rxjs';
+import { of, from, mergeMap } from 'rxjs';
 import { map, catchError, switchMap, withLatestFrom, tap } from 'rxjs/operators';
 import { ShelvesActions } from './shelves.actions';
 import { DocumentsActions } from '../documents/documents.actions';
@@ -80,8 +80,42 @@ export class ShelvesEffects {
     this.actions$.pipe(
       ofType(ShelvesActions.deleteShelf),
       switchMap((action) =>
-        from(this.shelfService.deleteShelf(action.id)).pipe(
-          map(() => ShelvesActions.deleteShelfSuccess({ id: action.id })),
+        from(this.shelfService.getShelf(action.id)).pipe(
+          switchMap(async (shelf) => {
+            if (!shelf) {
+              throw new Error('Shelf not found');
+            }
+
+            // Move all documents from this shelf to "unshelved"
+            for (const documentId of shelf.documentIds) {
+              const doc = await this.indexDBService.getMetadata(documentId);
+              if (doc) {
+                doc.shelfId = null;
+                await this.indexDBService.saveMetadata(doc);
+              }
+            }
+
+            // Delete the shelf
+            await this.shelfService.deleteShelf(action.id);
+            return { id: action.id, documentIds: shelf.documentIds };
+          }),
+          mergeMap(({ id, documentIds }) => {
+            // Return array of actions to dispatch
+            const actions: any[] = [ShelvesActions.deleteShelfSuccess({ id })];
+            
+            // Add moveDocumentToShelf for each document to update the store
+            for (const documentId of documentIds) {
+              actions.push(
+                ShelvesActions.moveDocumentToShelf({
+                  documentId,
+                  fromShelfId: id,
+                  toShelfId: null
+                })
+              );
+            }
+            
+            return from(actions);
+          }),
           catchError((error) =>
             of(ShelvesActions.deleteShelfFailure({ error: error.message }))
           )
