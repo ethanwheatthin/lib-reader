@@ -36,13 +36,6 @@
 - AI-powered book summaries
 - Extract quotes and key insights
 
-### Reading Modes
-- Focus mode (distraction-free, hide controls)
-- Scroll mode vs paginated mode toggle
-- Two-page spread for tablets/desktop
-- Option to toggle single page mode
-- Follow mode (highlight text and then proceed word by word with a highlight setting to track what you're reading)
-
 ### Gesture Controls
 - Swipe to turn pages
 - Pinch to zoom

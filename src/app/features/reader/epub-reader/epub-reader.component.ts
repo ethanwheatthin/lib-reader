@@ -185,6 +185,9 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
           this.updateLocation(location);
         });
 
+        // Attach keyboard listeners to the epub iframe
+        this.attachIframeKeyboardListeners();
+
         // Try to load cached locations for instant progress, otherwise generate
         await this.loadOrGenerateLocations();
       }
@@ -196,6 +199,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.endReadingSession();
     this.cleanupKeyboardShortcuts();
+    this.detachIframeKeyboardListeners();
     this.cleanupFollowMode();
     if (this.focusModeControlsTimeout) {
       clearTimeout(this.focusModeControlsTimeout);
@@ -636,10 +640,12 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // ---------------------------------------------------------------------------
 
   private keyboardHandler = (event: KeyboardEvent) => {
+    const isInputActive = document.activeElement?.tagName === 'INPUT' || 
+                          document.activeElement?.tagName === 'TEXTAREA';
+
     // Focus mode toggle: F key
     if (event.key === 'f' || event.key === 'F') {
-      if (document.activeElement?.tagName !== 'INPUT' && 
-          document.activeElement?.tagName !== 'TEXTAREA') {
+      if (!isInputActive) {
         event.preventDefault();
         this.focusMode.update(v => !v);
         this.focusModeChange.emit(this.focusMode());
@@ -661,6 +667,36 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         this.cleanupFollowMode();
         this.saveSettings();
       }
+      return; // Don't process other shortcuts in follow mode
+    }
+
+    // Page navigation and other shortcuts (when NOT in follow mode and NOT in input)
+    if (!isInputActive) {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        this.nextPage();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this.prevPage();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.increaseFontSize();
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.decreaseFontSize();
+      } else if (event.key === 'd' || event.key === 'D') {
+        event.preventDefault();
+        this.nextPage();
+      } else if (event.key === 'a' || event.key === 'A') {
+        event.preventDefault();
+        this.prevPage();
+      } else if (event.key === 'b' || event.key === 'B') {
+        event.preventDefault();
+        this.toggleBookmarkAtCurrentLocation();
+      } else if (event.key === 'o' || event.key === 'O') {
+        event.preventDefault();
+        this.togglePanel();
+      }
     }
   };
 
@@ -670,6 +706,70 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   private cleanupKeyboardShortcuts(): void {
     document.removeEventListener('keydown', this.keyboardHandler);
+  }
+
+  private increaseFontSize(): void {
+    const newSize = this.fontSize() + this.FONT_SIZE_STEP;
+    this.fontSize.set(newSize);
+    if (this.rendition) {
+      this.rendition.themes.fontSize(`${newSize}px`);
+    }
+    this.saveSettings();
+  }
+
+  private decreaseFontSize(): void {
+    const currentSize = this.fontSize();
+    if (currentSize > this.FONT_SIZE_MIN) {
+      const newSize = Math.max(this.FONT_SIZE_MIN, currentSize - this.FONT_SIZE_STEP);
+      this.fontSize.set(newSize);
+      if (this.rendition) {
+        this.rendition.themes.fontSize(`${newSize}px`);
+      }
+      this.saveSettings();
+    }
+  }
+
+  /**
+   * Attach keyboard event listeners to the epub.js iframe so shortcuts
+   * work when the user is focused on the book content.
+   */
+  private attachIframeKeyboardListeners(): void {
+    if (!this.rendition) return;
+
+    try {
+      const contents = this.rendition.getContents();
+      if (contents && contents.length > 0) {
+        contents.forEach((content: any) => {
+          const iframeDoc = content.document;
+          if (iframeDoc) {
+            iframeDoc.addEventListener('keydown', this.keyboardHandler);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Could not attach iframe keyboard listeners:', error);
+    }
+  }
+
+  /**
+   * Remove keyboard event listeners from the epub.js iframe.
+   */
+  private detachIframeKeyboardListeners(): void {
+    if (!this.rendition) return;
+
+    try {
+      const contents = this.rendition.getContents();
+      if (contents && contents.length > 0) {
+        contents.forEach((content: any) => {
+          const iframeDoc = content.document;
+          if (iframeDoc) {
+            iframeDoc.removeEventListener('keydown', this.keyboardHandler);
+          }
+        });
+      }
+    } catch (error) {
+      // Silently ignore cleanup errors
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -710,6 +810,9 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.rendition.on('relocated', (location: any) => {
       this.updateLocation(location);
     });
+
+    // Re-attach keyboard listeners to the new iframe
+    this.attachIframeKeyboardListeners();
   }
 
   // ---------------------------------------------------------------------------
