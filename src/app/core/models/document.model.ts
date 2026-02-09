@@ -84,6 +84,8 @@ export interface Document {
   readingProgressPercent?: number;
   /** Book metadata from Open Library or user edits */
   metadata?: BookMetadata;
+  /** ID of the shelf this document belongs to (null = unshelved) */
+  shelfId?: string | null;
 }
 
 export type ThemeOption = 'light' | 'dark' | 'sepia';

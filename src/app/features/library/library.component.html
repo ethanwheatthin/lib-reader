@@ -49,17 +49,46 @@
       @if (shelvesExpanded) {
         <div class="shelf-list">
           @if (documents$ | async; as docs) {
-            <div class="shelf-item">
+            <div
+              class="shelf-item"
+              [class.active]="(selectedShelfId$ | async) === null"
+              (click)="selectShelf(null)"
+              cdkDropList
+              [cdkDropListData]="docs"
+              (cdkDropListDropped)="onBookDrop($event, null)"
+            >
               @if (docs.length > 0 && getCoverImage(docs[0])) {
                 <img class="shelf-thumb" [src]="getCoverImage(docs[0])" alt="" />
               } @else {
                 <span class="shelf-thumb-placeholder">📚</span>
               }
               <span class="shelf-name">Unshelved</span>
-              <span class="nav-count">{{ docs.length }}</span>
+              <span class="nav-count">{{ getUnshelvedCount(docs) }}</span>
             </div>
+
+            @if (shelves$ | async; as shelves) {
+              @for (shelf of shelves; track shelf.id) {
+                <div
+                  class="shelf-item"
+                  [class.active]="(selectedShelfId$ | async) === shelf.id"
+                  (click)="selectShelf(shelf.id)"
+                  cdkDropList
+                  [cdkDropListData]="docs"
+                  (cdkDropListDropped)="onBookDrop($event, shelf.id)"
+                >
+                  <span class="shelf-color-indicator" [style.background-color]="shelf.color"></span>
+                  <span class="shelf-name">{{ shelf.name }}</span>
+                  <span class="nav-count">{{ getShelfDocumentCount(shelf, docs) }}</span>
+                  <button
+                    class="btn-delete-shelf"
+                    (click)="deleteShelf(shelf.id, $event)"
+                    title="Delete shelf"
+                  >×</button>
+                </div>
+              }
+            }
           }
-          <button class="btn-create-shelf" disabled>
+          <button class="btn-create-shelf" (click)="openCreateShelfModal()">
             <span class="create-icon">✏️</span>
             <span>Create shelf</span>
           </button>
@@ -108,9 +137,15 @@
 
         <!-- Books Grid -->
         @if (viewMode === 'grid') {
-          <div class="books-grid">
+          <div class="books-grid" cdkDropListGroup>
             @for (doc of documents; track doc.id) {
-              <div class="book-card" [class.menu-open]="openMenuId === doc.id" (click)="openDocument(doc.id)">
+              <div
+                class="book-card"
+                [class.menu-open]="openMenuId === doc.id"
+                (click)="openDocument(doc.id)"
+                cdkDrag
+                [cdkDragData]="doc.id"
+              >
                 <div class="book-cover-wrapper">
                   @if (getCoverImage(doc)) {
                     <img class="book-cover-img" [src]="getCoverImage(doc)" [alt]="doc.title" />
@@ -154,9 +189,14 @@
 
         <!-- Books List -->
         @if (viewMode === 'list') {
-          <div class="books-list-view">
+          <div class="books-list-view" cdkDropListGroup>
             @for (doc of documents; track doc.id) {
-              <div class="list-row" (click)="openDocument(doc.id)">
+              <div
+                class="list-row"
+                (click)="openDocument(doc.id)"
+                cdkDrag
+                [cdkDragData]="doc.id"
+              >
                 <div class="list-cover">
                   @if (getCoverImage(doc)) {
                     <img [src]="getCoverImage(doc)" [alt]="doc.title" />

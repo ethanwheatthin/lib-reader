@@ -1,3 +1,5 @@
+@import "../app/flex-custom.css";
+
 :host {
   display: block;
   height: 100vh;

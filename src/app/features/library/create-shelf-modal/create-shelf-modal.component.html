@@ -1,0 +1,52 @@
+<h2 mat-dialog-title>Create New Shelf</h2>
+
+<mat-dialog-content>
+  <form (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="shelf-name">Shelf Name</label>
+      <input
+        id="shelf-name"
+        type="text"
+        class="form-control"
+        [(ngModel)]="shelfName"
+        name="shelfName"
+        placeholder="e.g., Favorites, To Read, Completed"
+        required
+        maxlength="50"
+        autofocus
+      />
+    </div>
+
+    <div class="form-group">
+      <label>Shelf Color</label>
+      <div class="color-picker">
+        @for (color of availableColors; track color) {
+          <button
+            type="button"
+            class="color-option"
+            [class.selected]="selectedColor === color"
+            [style.background-color]="color"
+            (click)="selectColor(color)"
+            [attr.aria-label]="'Select color ' + color"
+          >
+            @if (selectedColor === color) {
+              <span class="check-mark">✓</span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button 
+    mat-raised-button 
+    color="primary"
+    (click)="onSubmit()"
+    [disabled]="!shelfName.trim()"
+  >
+    Create Shelf
+  </button>
+</mat-dialog-actions>

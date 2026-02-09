@@ -2,6 +2,7 @@ import { createFeature, createReducer, on } from '@ngrx/store';
 import { createEntityAdapter, EntityAdapter, EntityState } from '@ngrx/entity';
 import { Document } from '../../core/models/document.model';
 import { DocumentsActions } from './documents.actions';
+import { ShelvesActions } from '../shelves/shelves.actions';
 
 export interface DocumentsState extends EntityState<Document> {
   selectedDocumentId: string | null;
@@ -155,7 +156,12 @@ export const documentsFeature = createFeature({
       const entity = state.entities[id];
       if (!entity) return state;
       return adapter.updateOne(
-        { id, changes: { metadata } },
+        { 
+          id, 
+          changes: { 
+            metadata: { ...entity.metadata, ...metadata }
+          } 
+        },
         state
       );
     }),
@@ -171,6 +177,16 @@ export const documentsFeature = createFeature({
             title: metadata.title || entity.title
           } 
         },
+        state
+      );
+    }),
+
+    // --- Shelf integration ---
+    on(ShelvesActions.moveDocumentToShelf, (state, { documentId, toShelfId }) => {
+      const entity = state.entities[documentId];
+      if (!entity) return state;
+      return adapter.updateOne(
+        { id: documentId, changes: { shelfId: toShelfId } },
         state
       );
     })

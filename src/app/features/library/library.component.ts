@@ -4,25 +4,40 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Observable, map, combineLatest, BehaviorSubject } from 'rxjs';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { MatDialog } from '@angular/material/dialog';
 import { Document, BookMetadata } from '../../core/models/document.model';
+import { Shelf } from '../../core/models/shelf.model';
 import { selectAllDocuments, selectLoading } from '../../store/documents/documents.selectors';
+import { selectAllShelves, selectSelectedShelfId } from '../../store/shelves/shelves.selectors';
 import { DocumentsActions } from '../../store/documents/documents.actions';
+import { ShelvesActions } from '../../store/shelves/shelves.actions';
 import { UploadComponent } from '../upload/upload.component';
 import { EditBookModalComponent } from './edit-book-modal/edit-book-modal.component';
+import { CreateShelfModalComponent } from './create-shelf-modal/create-shelf-modal.component';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, FormsModule, UploadComponent, EditBookModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DragDropModule,
+    UploadComponent,
+    EditBookModalComponent
+  ],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css'
 })
 export class LibraryComponent implements OnInit {
   private store = inject(Store);
   private router = inject(Router);
+  private dialog = inject(MatDialog);
   
   documents$: Observable<Document[]> = this.store.select(selectAllDocuments);
   loading$: Observable<boolean> = this.store.select(selectLoading);
+  shelves$: Observable<Shelf[]> = this.store.select(selectAllShelves);
+  selectedShelfId$: Observable<string | null> = this.store.select(selectSelectedShelfId);
   
   editingDocument: Document | null = null;
   
@@ -37,15 +52,31 @@ export class LibraryComponent implements OnInit {
   
   filteredDocuments$: Observable<Document[]> = combineLatest([
     this.documents$,
-    this.searchQuery$
+    this.searchQuery$,
+    this.selectedShelfId$
   ]).pipe(
-    map(([docs, query]) => {
-      if (!query.trim()) return docs;
-      const q = query.toLowerCase();
-      return docs.filter(d => 
-        d.title.toLowerCase().includes(q) ||
-        (d.metadata?.author?.toLowerCase().includes(q))
-      );
+    map(([docs, query, selectedShelfId]) => {
+      let filtered = docs;
+      
+      // Filter by selected shelf
+      if (selectedShelfId) {
+        filtered = filtered.filter(d => d.shelfId === selectedShelfId);
+      } else if (selectedShelfId === null) {
+        // Show only unshelved documents when "Unshelved" is selected
+        filtered = filtered.filter(d => !d.shelfId);
+      }
+      
+      // Filter by search query
+      if (query.trim()) {
+    this.store.dispatch(ShelvesActions.loadShelves());
+        const q = query.toLowerCase();
+        filtered = filtered.filter(d => 
+          d.title.toLowerCase().includes(q) ||
+          (d.metadata?.author?.toLowerCase().includes(q))
+        );
+      }
+      
+      return filtered;
     })
   );
 
@@ -134,5 +165,58 @@ export class LibraryComponent implements OnInit {
 
   getAuthor(doc: Document): string {
     return doc.metadata?.author || 'Unknown Author';
+  }
+
+  // Shelf management methods
+  openCreateShelfModal(): void {
+    const dialogRef = this.dialog.open(CreateShelfModalComponent, {
+      width: '500px',
+      disableClose: false
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.store.dispatch(ShelvesActions.createShelf({ name: result.name, color: result.color }));
+      }
+    });
+  }
+
+  selectShelf(shelfId: string | null): void {
+    this.store.dispatch(ShelvesActions.selectShelf({ id: shelfId }));
+  }
+
+  deleteShelf(shelfId: string, event: Event): void {
+    event.stopPropagation();
+    if (confirm('Are you sure you want to delete this shelf? Books will be moved to Unshelved.')) {
+      this.store.dispatch(ShelvesActions.deleteShelf({ id: shelfId }));
+    }
+  }
+
+  getShelfDocumentCount(shelf: Shelf, documents: Document[]): number {
+    return documents.filter(d => d.shelfId === shelf.id).length;
+  }
+
+  getUnshelvedCount(documents: Document[]): number {
+    return documents.filter(d => !d.shelfId).length;
+  }
+
+  // Drag and drop handling
+  onBookDrop(event: CdkDragDrop<any>, targetShelfId: string | null): void {
+    const documentId = event.item.data;
+    const document = event.previousContainer.data.find((d: Document) => d.id === documentId);
+    
+    if (!document) return;
+    
+    const fromShelfId = document.shelfId || null;
+    
+    if (fromShelfId !== targetShelfId) {
+      this.store.dispatch(
+        ShelvesActions.moveDocumentToShelf({
+          documentId,
+          fromShelfId,
+          toShelfId: targetShelfId
+        })
+      );
+    }
   }
 }
