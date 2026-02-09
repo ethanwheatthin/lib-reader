@@ -3,14 +3,6 @@
 
 ## Phase 1: Core Reading Experience Enhancements
 
-### Bookmarks & Progress Tracking ✅
-- ~~Visual bookmark indicators~~
-- ~~Quick jump to bookmarks~~
-- ~~Reading progress bar for entire book~~
-- ~~Estimated time remaining in chapter/book~~
-- ~~Reading statistics (time spent, pages per session)~~
-- ~~Reading goals and streaks~~
-
 ### Annotations & Highlights
 - Text selection and highlighting with multiple color options
 - Add notes/annotations to specific passages
@@ -19,15 +11,6 @@
 - Search within annotations
 - Share specific highlights with deeplinks
 
-
-
-### Table of Contents & Navigation
-- Interactive TOC sidebar with nested chapters
-- Breadcrumb navigation showing current location
-- Quick chapter navigation dropdown
-- Search within book content
-- Go to page number
-- Visual reading progress timeline
 
 ### Text-to-Speech (TTS)
 - Read aloud functionality with voice selection
@@ -57,9 +40,8 @@
 - Focus mode (distraction-free, hide controls)
 - Scroll mode vs paginated mode toggle
 - Two-page spread for tablets/desktop
-- Night mode with blue light filter
-- Dyslexic-friendly fonts (OpenDyslexic)
-- Speed reading mode (RSVP - Rapid Serial Visual Presentation)
+- Option to toggle single page mode
+- Follow mode (highlight text and then proceed word by word with a highlight setting to track what you're reading)
 
 ### Gesture Controls
 - Swipe to turn pages

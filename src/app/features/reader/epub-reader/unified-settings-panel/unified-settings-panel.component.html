@@ -148,6 +148,90 @@
             </div>
           </div>
 
+          <!-- Reading Modes Section -->
+          <div class="settings-divider"></div>
+          
+          <!-- Flow Mode (Paginated vs Scroll) -->
+          <div class="settings-section">
+            <span class="section-label">Reading Mode</span>
+            <div class="mode-buttons" role="radiogroup" aria-label="Reading flow mode">
+              <button
+                class="mode-btn"
+                [class.selected]="settings.flowMode === 'paginated'"
+                (click)="updateFlowMode('paginated')"
+                [attr.aria-pressed]="settings.flowMode === 'paginated'"
+                aria-label="Paginated mode">
+                📄 Paginated
+              </button>
+              <button
+                class="mode-btn"
+                [class.selected]="settings.flowMode === 'scrolled'"
+                (click)="updateFlowMode('scrolled')"
+                [attr.aria-pressed]="settings.flowMode === 'scrolled'"
+                aria-label="Scroll mode">
+                📜 Scroll
+              </button>
+            </div>
+          </div>
+
+          <!-- Spread Mode (Page Layout) -->
+          <div class="settings-section">
+            <span class="section-label">Page Layout</span>
+            <div class="mode-buttons" role="radiogroup" aria-label="Page spread mode">
+              <button
+                class="mode-btn mode-btn--small"
+                [class.selected]="settings.spreadMode === 'none'"
+                (click)="updateSpreadMode('none')"
+                [attr.aria-pressed]="settings.spreadMode === 'none'"
+                aria-label="Single page">
+                📱 Single
+              </button>
+              <button
+                class="mode-btn mode-btn--small"
+                [class.selected]="settings.spreadMode === 'auto'"
+                (click)="updateSpreadMode('auto')"
+                [attr.aria-pressed]="settings.spreadMode === 'auto'"
+                aria-label="Auto spread">
+                💻 Auto
+              </button>
+              <button
+                class="mode-btn mode-btn--small"
+                [class.selected]="settings.spreadMode === 'always'"
+                (click)="updateSpreadMode('always')"
+                [attr.aria-pressed]="settings.spreadMode === 'always'"
+                aria-label="Always two pages">
+                📖 Two-Page
+              </button>
+            </div>
+          </div>
+
+          <!-- Toggle Modes -->
+          <div class="settings-section">
+            <span class="section-label">View Options</span>
+            <div class="toggle-options">
+              <button
+                class="toggle-btn"
+                [class.active]="settings.focusMode"
+                (click)="toggleFocusMode()"
+                [attr.aria-pressed]="settings.focusMode"
+                title="Hide controls for distraction-free reading (press F to toggle)">
+                <span class="toggle-icon">{{ settings.focusMode ? '✓' : '' }}</span>
+                <span class="toggle-label">Focus Mode</span>
+                <span class="toggle-hint">F</span>
+              </button>
+              <button
+                class="toggle-btn"
+                [class.active]="settings.followMode"
+                (click)="toggleFollowMode()"
+                [attr.aria-pressed]="settings.followMode"
+                title="Highlight and follow text word by word (use arrow keys)">
+                <span class="toggle-icon">{{ settings.followMode ? '✓' : '' }}</span>
+                <span class="toggle-label">Follow Mode</span>
+                <span class="toggle-hint">→ ←</span>
+              </button>
+            </div>
+          </div>
+
         </div>
       }
 

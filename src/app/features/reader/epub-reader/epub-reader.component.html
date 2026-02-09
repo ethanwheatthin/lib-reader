@@ -1,6 +1,10 @@
-<div class="epub-container" [attr.data-theme]="theme()">
+<div class="epub-container" [attr.data-theme]="theme()" [class.focus-mode]="focusMode()">
   <!-- Reading progress bar -->
-  <app-reading-progress [progress]="readingProgress$ | async" [theme]="theme()"></app-reading-progress>
+  <app-reading-progress 
+    [progress]="readingProgress$ | async" 
+    [theme]="theme()"
+    [class.hidden-in-focus]="focusMode()">
+  </app-reading-progress>
 
   <!-- Unified settings panel -->
   <app-unified-settings-panel
@@ -21,9 +25,10 @@
     (bookmarkRemove)="removeBookmark($event)">
   </app-unified-settings-panel>
 
-  <div #viewer class="epub-viewer"></div>
+  <div #viewer class="epub-viewer" (click)="onViewerClick()"></div>
+  
   <!-- Top bar: navigation + settings toggle -->
-  <div class="reader-controls">
+  <div class="reader-controls" [class.hidden-in-focus]="focusMode()" [class.focus-temporary-show]="focusModeControlsVisible()">
     <button
       class="bookmark-toggle"
       (click)="toggleBookmarkAtCurrentLocation()"
@@ -44,14 +49,18 @@
         {{ currentLocation }}
       }
     </span>
+    
+    
+    
     <button (click)="nextPage()" [disabled]="!canGoNext" aria-label="Next page">Next</button>
 
     @if (estimatedTimeRemaining$ | async; as eta) {
       <span class="eta-badge" title="Estimated time remaining">{{ eta }}</span>
     }
 
+    <!-- Settings button is always visible, even in focus mode -->
     <button
-      class="panel-toggle"
+      class="panel-toggle always-visible"
       (click)="togglePanel()"
       [attr.aria-expanded]="panelOpen()"
       aria-label="Open settings panel"
@@ -59,4 +68,12 @@
       ⚙️
     </button>
   </div>
+
+  <!-- Follow mode indicator -->
+  @if (followMode()) {
+    <div class="follow-mode-indicator">
+      <span>Follow Mode</span>
+      <small>Use → and ← keys, ESC to exit</small>
+    </div>
+  }
 </div>

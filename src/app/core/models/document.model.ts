@@ -87,12 +87,18 @@ export interface Document {
 }
 
 export type ThemeOption = 'light' | 'dark' | 'sepia';
+export type FlowMode = 'paginated' | 'scrolled';
+export type SpreadMode = 'none' | 'auto' | 'always';
 
 export interface ReaderSettings {
   fontSize: number;
   lineHeight: number;
   fontFamily: string;
   theme: ThemeOption;
+  flowMode: FlowMode;
+  spreadMode: SpreadMode;
+  focusMode: boolean;
+  followMode: boolean;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
@@ -100,6 +106,10 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   lineHeight: 1.6,
   fontFamily: 'Georgia',
   theme: 'light',
+  flowMode: 'paginated',
+  spreadMode: 'none',
+  focusMode: false,
+  followMode: false,
 };
 
 /** Control constraints */

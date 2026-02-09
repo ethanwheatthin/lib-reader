@@ -3,12 +3,23 @@
     <button (click)="goBack()" class="back-btn">← Back to Library</button>
     @if (document$ | async; as doc) {
       <h2>{{ doc.title }}</h2>
+      @if (focusModeActive()) {
+        <span 
+          class="focus-mode-badge" 
+          (click)="toggleFocusMode()" 
+          title="Click to exit focus mode">
+          👁️ Focus
+        </span>
+      }
     }
   </div>
   
   @if (document$ | async; as doc) {
     @if (doc.type === 'epub') {
-      <app-epub-reader [documentId]="doc.id"></app-epub-reader>
+      <app-epub-reader 
+        [documentId]="doc.id"
+        (focusModeChange)="onFocusModeChange($event)">
+      </app-epub-reader>
     } @else {
       <app-pdf-reader [documentId]="doc.id"></app-pdf-reader>
     }

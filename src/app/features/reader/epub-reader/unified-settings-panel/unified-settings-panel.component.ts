@@ -2,6 +2,8 @@ import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
   ThemeOption, 
+  FlowMode,
+  SpreadMode,
   TocItem, 
   Bookmark, 
   ReadingGoal, 
@@ -18,6 +20,10 @@ export interface SettingsState {
   lineHeight: number;
   fontFamily: string;
   theme: ThemeOption;
+  flowMode: FlowMode;
+  spreadMode: SpreadMode;
+  focusMode: boolean;
+  followMode: boolean;
 }
 
 export type TabType = 'settings' | 'chapters' | 'bookmarks';
@@ -186,6 +192,22 @@ export class UnifiedSettingsPanelComponent {
 
   updateTheme(value: ThemeOption): void {
     this.emitSettings({ ...this.settings, theme: value });
+  }
+
+  updateFlowMode(value: FlowMode): void {
+    this.emitSettings({ ...this.settings, flowMode: value });
+  }
+
+  updateSpreadMode(value: SpreadMode): void {
+    this.emitSettings({ ...this.settings, spreadMode: value });
+  }
+
+  toggleFocusMode(): void {
+    this.emitSettings({ ...this.settings, focusMode: !this.settings.focusMode });
+  }
+
+  toggleFollowMode(): void {
+    this.emitSettings({ ...this.settings, followMode: !this.settings.followMode });
   }
 
   private emitSettings(newSettings: SettingsState): void {

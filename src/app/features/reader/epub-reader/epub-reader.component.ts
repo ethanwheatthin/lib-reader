@@ -1,4 +1,4 @@
-import { Component, Input, inject, OnInit, OnDestroy, ElementRef, ViewChild, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnInit, OnDestroy, ElementRef, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -21,6 +21,8 @@ import {
   ReaderSettings,
   DEFAULT_READER_SETTINGS,
   ThemeOption,
+  FlowMode,
+  SpreadMode,
   FONT_SIZE_MIN,
   FONT_SIZE_STEP,
   LINE_HEIGHT_MIN,
@@ -41,6 +43,7 @@ const LOCATIONS_CACHE_PREFIX = 'epub-locations-';
 })
 export class EpubReaderComponent implements OnInit, OnDestroy {
   @Input() documentId!: string;
+  @Output() focusModeChange = new EventEmitter<boolean>();
   @ViewChild('viewer', { static: true }) viewer!: ElementRef;
 
   private store = inject(Store);
@@ -68,6 +71,10 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // --- Unified panel state ---
   panelOpen = signal<boolean>(false);
 
+  // --- Focus mode temporary controls visibility ---
+  focusModeControlsVisible = signal<boolean>(false);
+  private focusModeControlsTimeout: any = null;
+
   // --- Chapters/TOC ---
   chapters = signal<TocItem[]>([]);
   currentChapterHref = signal<string | null>(null);
@@ -79,11 +86,20 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   private currentCfi = '';
   private locationsReady = false;
 
+  // --- Follow mode tracking ---
+  private followModeWords: string[] = [];
+  private followModeCurrentIndex = 0;
+  private followModeHighlightElement: HTMLElement | null = null;
+
   // --- Reader settings signals ---
   fontSize = signal<number>(DEFAULT_READER_SETTINGS.fontSize);
   lineHeight = signal<number>(DEFAULT_READER_SETTINGS.lineHeight);
   fontFamily = signal<string>(DEFAULT_READER_SETTINGS.fontFamily);
   theme = signal<ThemeOption>(DEFAULT_READER_SETTINGS.theme);
+  flowMode = signal<FlowMode>(DEFAULT_READER_SETTINGS.flowMode);
+  spreadMode = signal<SpreadMode>(DEFAULT_READER_SETTINGS.spreadMode);
+  focusMode = signal<boolean>(DEFAULT_READER_SETTINGS.focusMode);
+  followMode = signal<boolean>(DEFAULT_READER_SETTINGS.followMode);
 
   // --- Control constraints ---
   readonly FONT_SIZE_MIN = FONT_SIZE_MIN;
@@ -107,13 +123,18 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       fontSize: this.fontSize(),
       lineHeight: this.lineHeight(),
       fontFamily: this.fontFamily(),
-      theme: this.theme()
+      theme: this.theme(),
+      flowMode: this.flowMode(),
+      spreadMode: this.spreadMode(),
+      focusMode: this.focusMode(),
+      followMode: this.followMode()
     };
   }
 
   async ngOnInit(): Promise<void> {
     this.loadSettings();
     this.startReadingSession();
+    this.setupKeyboardShortcuts();
 
     try {
       const blob = await this.indexDB.getFile(this.documentId);
@@ -124,7 +145,8 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         this.rendition = this.book.renderTo(this.viewer.nativeElement, {
           width: '100%',
           height: '100%',
-          spread: 'none',
+          spread: this.spreadMode(),
+          flow: this.flowMode(),
           allowScriptedContent: true,
         });
 
@@ -173,6 +195,11 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.endReadingSession();
+    this.cleanupKeyboardShortcuts();
+    this.cleanupFollowMode();
+    if (this.focusModeControlsTimeout) {
+      clearTimeout(this.focusModeControlsTimeout);
+    }
     if (this.rendition) {
       this.rendition.destroy();
     }
@@ -206,23 +233,77 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.showProgress.update(v => !v);
   }
 
+  onViewerClick(): void {
+    if (this.focusMode()) {
+      // Temporarily show controls in focus mode
+      this.focusModeControlsVisible.set(true);
+      
+      // Clear existing timeout
+      if (this.focusModeControlsTimeout) {
+        clearTimeout(this.focusModeControlsTimeout);
+      }
+      
+      // Hide controls after 3 seconds
+      this.focusModeControlsTimeout = setTimeout(() => {
+        this.focusModeControlsVisible.set(false);
+      }, 3000);
+    }
+  }
+
+  exitFocusMode(): void {
+    this.focusMode.set(false);
+    this.focusModeControlsVisible.set(false);
+    if (this.focusModeControlsTimeout) {
+      clearTimeout(this.focusModeControlsTimeout);
+    }
+    this.focusModeChange.emit(false);
+    this.saveSettings();
+  }
+
   // ---------------------------------------------------------------------------
   // Settings change handler from child component
   // ---------------------------------------------------------------------------
 
   onSettingsChange(newSettings: SettingsState): void {
+    const needsRecreate = 
+      this.flowMode() !== newSettings.flowMode || 
+      this.spreadMode() !== newSettings.spreadMode;
+
     // Update local signals
     this.fontSize.set(newSettings.fontSize);
     this.lineHeight.set(newSettings.lineHeight);
     this.fontFamily.set(newSettings.fontFamily);
     this.theme.set(newSettings.theme);
+    this.flowMode.set(newSettings.flowMode);
+    this.spreadMode.set(newSettings.spreadMode);
+    const focusModeChanged = this.focusMode() !== newSettings.focusMode;
+    this.focusMode.set(newSettings.focusMode);
+    const followModeChanged = this.followMode() !== newSettings.followMode;
+    this.followMode.set(newSettings.followMode);
 
-    // Apply to rendition
-    if (this.rendition) {
+    if (focusModeChanged) {
+      this.focusModeChange.emit(newSettings.focusMode);
+    }
+
+    if (needsRecreate) {
+      // Flow/spread changes require recreating the rendition
+      this.recreateRendition();
+    } else if (this.rendition) {
+      // Apply other settings without recreating
       this.rendition.themes.fontSize(`${newSettings.fontSize}px`);
       this.rendition.themes.select(newSettings.theme);
       this.applyLineHeightAndFont();
     }
+
+    // Handle follow mode toggle
+    if (followModeChanged) {
+      if (newSettings.followMode) {
+        this.startFollowMode();
+      } else {
+        this.cleanupFollowMode();
+      }
+    }
+
     this.applyHostTheme(newSettings.theme);
     this.saveSettings();
   }
@@ -311,6 +392,10 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       lineHeight: this.lineHeight(),
       fontFamily: this.fontFamily(),
       theme: this.theme(),
+      flowMode: this.flowMode(),
+      spreadMode: this.spreadMode(),
+      focusMode: this.focusMode(),
+      followMode: this.followMode(),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -329,10 +414,16 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         if (saved.lineHeight) this.lineHeight.set(saved.lineHeight);
         if (saved.fontFamily) this.fontFamily.set(saved.fontFamily);
         if (saved.theme) this.theme.set(saved.theme);
+        if (saved.flowMode) this.flowMode.set(saved.flowMode);
+        if (saved.spreadMode) this.spreadMode.set(saved.spreadMode);
+        if (saved.focusMode != null) this.focusMode.set(saved.focusMode);
+        if (saved.followMode != null) this.followMode.set(saved.followMode);
       }
     } catch {
       console.warn('Could not load reader settings from localStorage');
     }
+    // Emit initial focus mode state after loading settings
+    this.focusModeChange.emit(this.focusMode());
   }
 
   // ---------------------------------------------------------------------------
@@ -539,4 +630,220 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       );
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Keyboard shortcuts
+  // ---------------------------------------------------------------------------
+
+  private keyboardHandler = (event: KeyboardEvent) => {
+    // Focus mode toggle: F key
+    if (event.key === 'f' || event.key === 'F') {
+      if (document.activeElement?.tagName !== 'INPUT' && 
+          document.activeElement?.tagName !== 'TEXTAREA') {
+        event.preventDefault();
+        this.focusMode.update(v => !v);
+        this.focusModeChange.emit(this.focusMode());
+        this.saveSettings();
+      }
+    }
+
+    // Follow mode controls
+    if (this.followMode()) {
+      if (event.key === 'ArrowRight' || event.key === ' ') {
+        event.preventDefault();
+        this.advanceFollowMode();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this.retreatFollowMode();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        this.followMode.set(false);
+        this.cleanupFollowMode();
+        this.saveSettings();
+      }
+    }
+  };
+
+  private setupKeyboardShortcuts(): void {
+    document.addEventListener('keydown', this.keyboardHandler);
+  }
+
+  private cleanupKeyboardShortcuts(): void {
+    document.removeEventListener('keydown', this.keyboardHandler);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rendition recreation (for flow/spread changes)
+  // ---------------------------------------------------------------------------
+
+  private async recreateRendition(): Promise<void> {
+    if (!this.book || !this.rendition) return;
+
+    const currentCfi = this.currentCfi;
+    
+    // Destroy old rendition
+    this.rendition.destroy();
+
+    // Create new rendition with updated settings
+    this.rendition = this.book.renderTo(this.viewer.nativeElement, {
+      width: '100%',
+      height: '100%',
+      spread: this.spreadMode(),
+      flow: this.flowMode(),
+      allowScriptedContent: true,
+    });
+
+    // Re-register themes
+    this.registerThemes();
+
+    // Apply all settings
+    this.applyAllSettings();
+
+    // Restore position
+    if (currentCfi) {
+      await this.rendition.display(currentCfi);
+    } else {
+      await this.rendition.display();
+    }
+
+    // Re-attach location tracking
+    this.rendition.on('relocated', (location: any) => {
+      this.updateLocation(location);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Follow mode (word-by-word highlighting)
+  // ---------------------------------------------------------------------------
+
+  private startFollowMode(): void {
+    if (!this.rendition) return;
+
+    try {
+      // Get the current page's text content
+      const contents = this.rendition.getContents();
+      if (contents && contents.length > 0) {
+        const iframe = contents[0];
+        const doc = iframe.document;
+        
+        if (doc && doc.body) {
+          const text = doc.body.innerText || '';
+          // Split into words (basic tokenization)
+          this.followModeWords = text.split(/\s+/).filter((w: any) => w.length > 0);
+          this.followModeCurrentIndex = 0;
+          this.highlightCurrentWord();
+        }
+      }
+    } catch (error) {
+      console.warn('Could not initialize follow mode:', error);
+    }
+  }
+
+  private highlightCurrentWord(): void {
+    if (!this.rendition || this.followModeWords.length === 0) return;
+
+    try {
+      const contents = this.rendition.getContents();
+      if (contents && contents.length > 0) {
+        const iframe = contents[0];
+        const doc = iframe.document;
+        
+        if (doc && doc.body) {
+          // Remove previous highlight
+          if (this.followModeHighlightElement) {
+            this.followModeHighlightElement.remove();
+          }
+
+          // Find and highlight current word
+          const currentWord = this.followModeWords[this.followModeCurrentIndex];
+          const bodyText = doc.body.innerHTML;
+          
+          // Simple word highlighting (can be improved with better text processing)
+          const wordRegex = new RegExp(`\\b${this.escapeRegex(currentWord)}\\b`, 'i');
+          const match = wordRegex.exec(doc.body.innerText);
+          
+          if (match) {
+            // Create highlight element
+            const range = doc.createRange();
+            const textNode = this.findTextNode(doc.body, currentWord, this.followModeCurrentIndex);
+            
+            if (textNode) {
+              const startOffset = textNode.textContent?.indexOf(currentWord) ?? 0;
+              range.setStart(textNode, startOffset);
+              range.setEnd(textNode, startOffset + currentWord.length);
+              
+              const highlight = doc.createElement('span');
+              highlight.style.backgroundColor = 'rgba(255, 255, 0, 0.5)';
+              highlight.style.transition = 'background-color 0.3s';
+              range.surroundContents(highlight);
+              
+              this.followModeHighlightElement = highlight;
+              
+              // Scroll into view
+              highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error highlighting word:', error);
+    }
+  }
+
+  private advanceFollowMode(): void {
+    if (this.followModeCurrentIndex < this.followModeWords.length - 1) {
+      this.followModeCurrentIndex++;
+      this.highlightCurrentWord();
+    } else {
+      // End of page, go to next page
+      this.nextPage().then(() => {
+        setTimeout(() => this.startFollowMode(), 500);
+      });
+    }
+  }
+
+  private retreatFollowMode(): void {
+    if (this.followModeCurrentIndex > 0) {
+      this.followModeCurrentIndex--;
+      this.highlightCurrentWord();
+    }
+  }
+
+  private cleanupFollowMode(): void {
+    this.followModeWords = [];
+    this.followModeCurrentIndex = 0;
+    if (this.followModeHighlightElement) {
+      this.followModeHighlightElement.remove();
+      this.followModeHighlightElement = null;
+    }
+  }
+
+  private findTextNode(element: Node, word: string, occurrence: number): Text | null {
+    let currentOccurrence = 0;
+    
+    const walk = (node: Node): Text | null => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || '';
+        if (text.includes(word)) {
+          if (currentOccurrence === occurrence) {
+            return node as Text;
+          }
+          currentOccurrence++;
+        }
+      } else {
+        for (let i = 0; i < node.childNodes.length; i++) {
+          const result = walk(node.childNodes[i]);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+    
+    return walk(element);
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 }
+

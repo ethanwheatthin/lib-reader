@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
@@ -21,7 +21,11 @@ export class ReaderComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   
+  @ViewChild(EpubReaderComponent) epubReader?: EpubReaderComponent;
+  
   document$: Observable<Document | null | undefined> = this.store.select(selectSelectedDocument);
+  
+  focusModeActive = signal<boolean>(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -32,5 +36,15 @@ export class ReaderComponent implements OnInit {
 
   goBack(): void {
     this.router.navigate(['/library']);
+  }
+
+  onFocusModeChange(active: boolean): void {
+    this.focusModeActive.set(active);
+  }
+
+  toggleFocusMode(): void {
+    if (this.epubReader) {
+      this.epubReader.exitFocusMode();
+    }
   }
 }
