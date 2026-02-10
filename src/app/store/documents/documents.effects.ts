@@ -262,7 +262,21 @@ export class DocumentsEffects {
   }
 
   private async persistMetadata(id: string): Promise<void> {
-    await this.syncDocumentField(id, 'metadata');
+    // Persist both metadata and title so changes made via UpdateBookMetadata
+    // (which may include a title) are saved to IndexedDB.
+    return new Promise((resolve) => {
+      this.store.select((state: any) => state.documents.entities[id]).subscribe(async (entity: Document | undefined) => {
+        if (entity) {
+          const persisted = await this.indexDB.getMetadata(id);
+          if (persisted) {
+            persisted.metadata = entity.metadata;
+            persisted.title = entity.title;
+            await this.indexDB.saveMetadata(persisted);
+          }
+        }
+        resolve();
+      }).unsubscribe();
+    });
   }
 
   /**

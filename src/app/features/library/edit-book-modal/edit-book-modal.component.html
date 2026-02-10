@@ -1,4 +1,4 @@
-<div class="modal-backdrop" (click)="onBackdropClick($event)">
+<div class="modal-backdrop">
   <div class="modal-content">
     <div class="modal-header">
       <h2>Edit Book Details</h2>
@@ -20,7 +20,8 @@
           <input 
             id="search-title"
             type="text" 
-            [(ngModel)]="metadata.title"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="onSearchQueryChange($event)"
             placeholder="Enter book title..."
             (keyup.enter)="searchByTitle()"
           />
@@ -66,6 +67,11 @@
         <h3>Book Information</h3>
         
         <div class="form-group">
+          <label for="title">Title</label>
+          <input id="title" type="text" [(ngModel)]="metadata.title" placeholder="Book title" />
+        </div>
+
+        <div class="form-group">
           <label for="author">Author</label>
           <input id="author" type="text" [(ngModel)]="metadata.author" placeholder="Author name" />
         </div>
@@ -105,7 +111,7 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn-secondary" (click)="onClose()">Cancel</button>
+      <button class="btn-secondary" (click)="onCancel()">Cancel</button>
       <button class="btn-primary" (click)="onSave()">Save Changes</button>
     </div>
   </div>

@@ -1,8 +1,10 @@
-import { Component, Input, Output, EventEmitter, OnInit, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BookMetadata, Document } from '../../../core/models/document.model';
 import { OpenLibraryService } from '../../../core/services/open-library.service';
+import { Subject, Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, filter, switchMap, tap, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-edit-book-modal',
@@ -11,7 +13,7 @@ import { OpenLibraryService } from '../../../core/services/open-library.service'
   templateUrl: './edit-book-modal.component.html',
   styleUrl: './edit-book-modal.component.css'
 })
-export class EditBookModalComponent implements OnInit {
+export class EditBookModalComponent implements OnInit, OnDestroy {
   @Input() document!: Document;
   @Output() close = new EventEmitter<void>();
   @Output() save = new EventEmitter<BookMetadata>();
@@ -22,6 +24,12 @@ export class EditBookModalComponent implements OnInit {
   searchResults: BookMetadata[] = [];
   isSearching = false;
   showSearchResults = false;
+
+  // the query typed into the search box (separate from the editable metadata.title)
+  searchQuery = '';
+  private titleSearch$ = new Subject<string>();
+  private titleSearchSub?: Subscription;
+  private originalMetadata: BookMetadata = {};
 
   ngOnInit(): void {
     // Initialize with existing metadata or defaults
@@ -37,40 +45,75 @@ export class EditBookModalComponent implements OnInit {
       subjects: this.document.metadata?.subjects || [],
       openLibraryKey: this.document.metadata?.openLibraryKey
     };
+
+    // keep a copy to allow "Cancel" to revert edits
+    this.originalMetadata = { ...this.metadata };
+    this.searchQuery = this.metadata.title || '';
+
+    // set up dynamic search stream
+    this.titleSearchSub = this.titleSearch$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      tap((q) => {
+        if (!q?.trim()) {
+          this.searchResults = [];
+          this.showSearchResults = false;
+          this.isSearching = false;
+        }
+      }),
+      filter((q) => !!q?.trim()),
+      tap(() => (this.isSearching = true)),
+      switchMap((q) =>
+        this.openLibraryService.searchByTitle(q).pipe(
+          catchError(() => of([]))
+        )
+      )
+    ).subscribe((results) => {
+      this.searchResults = results;
+      this.showSearchResults = results.length > 0;
+      this.isSearching = false;
+    });
   }
 
-  searchByTitle(): void {
-    if (!this.metadata.title?.trim()) return;
+  // called when the search input changes (dynamic search)
+  onSearchQueryChange(query: string): void {
+    this.searchQuery = query;
+    this.titleSearch$.next(query);
+  }
 
-    this.isSearching = true;
-    this.openLibraryService.searchByTitle(this.metadata.title).subscribe({
-      next: (results) => {
-        this.searchResults = results;
-        this.showSearchResults = results.length > 0;
-        this.isSearching = false;
-      },
-      error: () => {
-        this.isSearching = false;
-      }
-    });
+  // manual search button still triggers a search
+  searchByTitle(): void {
+    if (!this.searchQuery?.trim()) return;
+    this.titleSearch$.next(this.searchQuery);
   }
 
   selectSearchResult(result: BookMetadata): void {
     this.metadata = { ...result };
+    this.searchQuery = result.title || '';
+    this.searchResults = [];
     this.showSearchResults = false;
   }
 
   onSave(): void {
+    // emit the updated metadata but do NOT close the modal; top-left close button is the only way to close
     this.save.emit(this.metadata);
   }
 
+  onCancel(): void {
+    // revert any changes but keep modal open
+    this.metadata = { ...this.originalMetadata };
+    this.searchQuery = this.metadata.title || '';
+    this.searchResults = [];
+    this.showSearchResults = false;
+    this.isSearching = false;
+  }
+
   onClose(): void {
+    // Only the top-left close button should close the modal
     this.close.emit();
   }
 
-  onBackdropClick(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
-      this.onClose();
-    }
+  ngOnDestroy(): void {
+    this.titleSearchSub?.unsubscribe();
   }
 }

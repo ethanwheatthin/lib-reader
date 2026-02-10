@@ -155,12 +155,14 @@ export const documentsFeature = createFeature({
     on(DocumentsActions.updateBookMetadata, (state, { id, metadata }) => {
       const entity = state.entities[id];
       if (!entity) return state;
+      // If the user provided a title in metadata, update the document title as well so
+      // the library list and other UI reflect the change immediately.
+      const changes: any = { metadata: { ...entity.metadata, ...metadata } };
+      if (metadata.title) changes.title = metadata.title;
       return adapter.updateOne(
         { 
           id, 
-          changes: { 
-            metadata: { ...entity.metadata, ...metadata }
-          } 
+          changes
         },
         state
       );
