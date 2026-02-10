@@ -141,9 +141,9 @@
             </div>
           </div>
 
-          <!-- Theme -->
+          <!-- Theme & Color Palette -->
           <div class="settings-section">
-            <span class="section-label">Theme</span>
+            <span class="section-label">Theme & Colors</span>
             <div class="theme-buttons" role="radiogroup" aria-label="Reader theme">
               @for (opt of themeOptions; track opt.value) {
                 <button
@@ -156,6 +156,104 @@
                 </button>
               }
             </div>
+          </div>
+
+          <!-- Color Palettes -->
+          <div class="settings-section">
+            <span class="section-label">Custom Color Palette</span>
+            <div class="palette-grid">
+              @for (palette of presetPalettes; track palette.name) {
+                <button
+                  class="palette-btn"
+                  [class.selected]="isPaletteActive(palette)"
+                  (click)="selectPresetPalette(palette)"
+                  [attr.aria-pressed]="isPaletteActive(palette)"
+                  [attr.aria-label]="palette.name + ' color palette'"
+                  [title]="palette.name">
+                  <span
+                    class="palette-swatch"
+                    [style.background]="palette.background"
+                    [style.color]="palette.text"
+                    [style.border-color]="palette.text + '33'">
+                    Aa
+                  </span>
+                  <span class="palette-name">{{ palette.name }}</span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Custom Color Editor -->
+          <div class="settings-section">
+            <button
+              class="custom-palette-toggle"
+              (click)="toggleCustomPaletteEditor()"
+              [attr.aria-expanded]="showCustomPaletteEditor()">
+              <span>🎨 Custom Colors</span>
+              <span class="toggle-arrow" [class.open]="showCustomPaletteEditor()">▾</span>
+            </button>
+            @if (showCustomPaletteEditor()) {
+              <div class="custom-palette-editor" role="group" aria-label="Custom color palette editor">
+                <div class="color-row">
+                  <label for="custom-bg">Background</label>
+                  <div class="color-input-group">
+                    <input
+                      type="color"
+                      id="custom-bg"
+                      [value]="customBg()"
+                      (input)="onCustomColorInput('bg', $event)"
+                      aria-label="Custom background color" />
+                    <span class="color-hex">{{ customBg() }}</span>
+                  </div>
+                </div>
+                <div class="color-row">
+                  <label for="custom-text">Text</label>
+                  <div class="color-input-group">
+                    <input
+                      type="color"
+                      id="custom-text"
+                      [value]="customText()"
+                      (input)="onCustomColorInput('text', $event)"
+                      aria-label="Custom text color" />
+                    <span class="color-hex">{{ customText() }}</span>
+                  </div>
+                </div>
+                <div class="color-row">
+                  <label for="custom-link">Links</label>
+                  <div class="color-input-group">
+                    <input
+                      type="color"
+                      id="custom-link"
+                      [value]="customLink()"
+                      (input)="onCustomColorInput('link', $event)"
+                      aria-label="Custom link color" />
+                    <span class="color-hex">{{ customLink() }}</span>
+                  </div>
+                </div>
+                <div class="custom-palette-preview"
+                  [style.background]="customBg()"
+                  [style.color]="customText()"
+                  aria-hidden="true">
+                  Preview text with your colors
+                </div>
+                <div class="custom-palette-actions">
+                  <button
+                    class="apply-palette-btn"
+                    (click)="applyCustomPalette()"
+                    aria-label="Apply custom color palette">
+                    Apply
+                  </button>
+                  @if (settings.customColorPalette) {
+                    <button
+                      class="clear-palette-btn"
+                      (click)="clearCustomPalette()"
+                      aria-label="Reset to default colors">
+                      Reset
+                    </button>
+                  }
+                </div>
+              </div>
+            }
           </div>
 
           <!-- Reading Modes Section -->
@@ -485,106 +583,6 @@
                 <p class="bionic-preview-text">
                   <strong>Thi</strong>s is <strong>ho</strong>w <strong>bion</strong>ic <strong>rea</strong>ding <strong>loo</strong>ks. <strong>Yo</strong>ur <strong>bra</strong>in <strong>comple</strong>tes <strong>th</strong>e <strong>wor</strong>ds.
                 </p>
-              </div>
-            }
-          </div>
-
-          <div class="settings-divider"></div>
-
-          <!-- Color Palettes -->
-          <div class="settings-section">
-            <span class="section-label">Color Palette</span>
-            <div class="palette-grid">
-              @for (palette of presetPalettes; track palette.name) {
-                <button
-                  class="palette-btn"
-                  [class.selected]="isPaletteActive(palette)"
-                  (click)="selectPresetPalette(palette)"
-                  [attr.aria-pressed]="isPaletteActive(palette)"
-                  [attr.aria-label]="palette.name + ' color palette'"
-                  [title]="palette.name">
-                  <span
-                    class="palette-swatch"
-                    [style.background]="palette.background"
-                    [style.color]="palette.text"
-                    [style.border-color]="palette.text + '33'">
-                    Aa
-                  </span>
-                  <span class="palette-name">{{ palette.name }}</span>
-                </button>
-              }
-            </div>
-          </div>
-
-          <!-- Custom Color Editor -->
-          <div class="settings-section">
-            <button
-              class="custom-palette-toggle"
-              (click)="toggleCustomPaletteEditor()"
-              [attr.aria-expanded]="showCustomPaletteEditor()">
-              <span>🎨 Custom Colors</span>
-              <span class="toggle-arrow" [class.open]="showCustomPaletteEditor()">▾</span>
-            </button>
-            @if (showCustomPaletteEditor()) {
-              <div class="custom-palette-editor" role="group" aria-label="Custom color palette editor">
-                <div class="color-row">
-                  <label for="custom-bg">Background</label>
-                  <div class="color-input-group">
-                    <input
-                      type="color"
-                      id="custom-bg"
-                      [value]="customBg()"
-                      (input)="onCustomColorInput('bg', $event)"
-                      aria-label="Custom background color" />
-                    <span class="color-hex">{{ customBg() }}</span>
-                  </div>
-                </div>
-                <div class="color-row">
-                  <label for="custom-text">Text</label>
-                  <div class="color-input-group">
-                    <input
-                      type="color"
-                      id="custom-text"
-                      [value]="customText()"
-                      (input)="onCustomColorInput('text', $event)"
-                      aria-label="Custom text color" />
-                    <span class="color-hex">{{ customText() }}</span>
-                  </div>
-                </div>
-                <div class="color-row">
-                  <label for="custom-link">Links</label>
-                  <div class="color-input-group">
-                    <input
-                      type="color"
-                      id="custom-link"
-                      [value]="customLink()"
-                      (input)="onCustomColorInput('link', $event)"
-                      aria-label="Custom link color" />
-                    <span class="color-hex">{{ customLink() }}</span>
-                  </div>
-                </div>
-                <div class="custom-palette-preview"
-                  [style.background]="customBg()"
-                  [style.color]="customText()"
-                  aria-hidden="true">
-                  Preview text with your colors
-                </div>
-                <div class="custom-palette-actions">
-                  <button
-                    class="apply-palette-btn"
-                    (click)="applyCustomPalette()"
-                    aria-label="Apply custom color palette">
-                    Apply
-                  </button>
-                  @if (settings.customColorPalette) {
-                    <button
-                      class="clear-palette-btn"
-                      (click)="clearCustomPalette()"
-                      aria-label="Reset to default colors">
-                      Reset
-                    </button>
-                  }
-                </div>
               </div>
             }
           </div>
