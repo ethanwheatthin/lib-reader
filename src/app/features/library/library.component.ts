@@ -1,12 +1,14 @@
-import { Component, inject, OnInit, HostListener } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { Observable, map, combineLatest, BehaviorSubject } from 'rxjs';
+import { Observable, map, combineLatest, BehaviorSubject, Subscription } from 'rxjs';
 import { CdkDragDrop, CdkDragStart, CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
+import { Actions, ofType } from '@ngrx/effects';
 import { Document, BookMetadata } from '../../core/models/document.model';
+import { AutoBackupService } from '../../core/services/auto-backup.service';
 import { Shelf } from '../../core/models/shelf.model';
 import { selectAllDocuments, selectLoading } from '../../store/documents/documents.selectors';
 import { selectAllShelves, selectSelectedShelfId } from '../../store/shelves/shelves.selectors';
@@ -39,10 +41,14 @@ import { BookCardComponent } from './components/book-card/book-card.component';
   templateUrl: './library.component.html',
   styleUrl: './library.component.css'
 })
-export class LibraryComponent implements OnInit {
+export class LibraryComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   private router = inject(Router);
   private dialog = inject(MatDialog);
+  private actions$ = inject(Actions);
+  private autoBackupService = inject(AutoBackupService);
+  private backupActionsSub: Subscription | null = null;
+  private backupTimestamp: ReturnType<typeof setTimeout> | null = null;
   
   documents$: Observable<Document[]> = this.store.select(selectAllDocuments);
   loading$: Observable<boolean> = this.store.select(selectLoading);
@@ -50,6 +56,9 @@ export class LibraryComponent implements OnInit {
   selectedShelfId$: Observable<string | null> = this.store.select(selectSelectedShelfId);
   
   editingDocument: Document | null = null;
+
+  /** Temporary "Updated" badge timestamp shown after auto-backup */
+  lastBackupTime: string | null = null;
   
   // New UI state
   searchQuery = '';
@@ -152,6 +161,33 @@ export class LibraryComponent implements OnInit {
     // Keep a small in-memory cache of documents to be able to perform
     // drag-drop fallback updates without requiring an async selector read.
     this.documents$.subscribe(docs => (this.currentDocuments = docs));
+
+    // Auto-backup when a book is edited or deleted
+    this.backupActionsSub = this.actions$
+      .pipe(
+        ofType(
+          DocumentsActions.deleteDocumentSuccess,
+          DocumentsActions.updateBookMetadata,
+          DocumentsActions.fetchMetadataSuccess
+        )
+      )
+      .subscribe(() => this.triggerAutoBackup());
+  }
+
+  ngOnDestroy(): void {
+    this.backupActionsSub?.unsubscribe();
+    if (this.backupTimestamp) clearTimeout(this.backupTimestamp);
+  }
+
+  private async triggerAutoBackup(): Promise<void> {
+    const entry = await this.autoBackupService.runBackup();
+    if (entry) {
+      this.lastBackupTime = new Date(entry.createdAt).toLocaleTimeString();
+      if (this.backupTimestamp) clearTimeout(this.backupTimestamp);
+      this.backupTimestamp = setTimeout(() => {
+        this.lastBackupTime = null;
+      }, 5000);
+    }
   }
 
   onSearchChange(): void {

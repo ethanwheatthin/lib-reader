@@ -442,6 +442,36 @@
   gap: 0.75rem;
 }
 
+/* Backup badge wrapper — positions the transient "Updated" badge */
+.backup-badge-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.backup-badge {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  white-space: nowrap;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-success, #2e7d32);
+  background: var(--glass-light, rgba(255,255,255,0.85));
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 20px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  pointer-events: none;
+  animation: backupBadgeFade 5s ease-out forwards;
+  z-index: 10;
+}
+
+@keyframes backupBadgeFade {
+  0%   { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
 .toolbar-btn {
   display: inline-flex;
   align-items: center;

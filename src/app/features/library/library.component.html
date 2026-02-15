@@ -67,7 +67,12 @@
               <button class="view-btn" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Grid view">⊞</button>
               <button class="view-btn" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'" title="List view">☰</button>
             </div>
-            <button class="toolbar-btn" title="Import / Export" (click)="openImportExportModal()">⇄</button>
+            <div class="backup-badge-wrapper">
+              <button class="toolbar-btn" title="Import / Export" (click)="openImportExportModal()">⇄</button>
+              @if (lastBackupTime) {
+                <span class="backup-badge">Updated {{ lastBackupTime }}</span>
+              }
+            </div>
             <app-upload></app-upload>
           </div>
         </div>

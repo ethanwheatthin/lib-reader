@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import localforage from 'localforage';
-import { Document } from '../models/document.model';
+import { Document, AutoBackupEntry } from '../models/document.model';
 import { Shelf } from '../models/shelf.model';
 import { ShelfService } from './shelf.service';
 
@@ -14,6 +14,11 @@ export class IndexDBService {
   private metadataStore = localforage.createInstance({
     name: 'epub-pdf-reader',
     storeName: 'metadata'
+  });
+
+  private autoBackupStore = localforage.createInstance({
+    name: 'epub-pdf-reader',
+    storeName: 'auto-backups'
   });
 
   // Inject shelf service for exporting/importing shelves
@@ -126,6 +131,53 @@ export class IndexDBService {
         doc.shelfId = null;
         await this.saveMetadata(doc);
       }
+    }
+  }
+
+  // ── Auto-backup methods ──
+
+  /** Save a backup blob and return its entry metadata */
+  async saveAutoBackup(blob: Blob): Promise<AutoBackupEntry> {
+    const id = `backup-${Date.now()}`;
+    const entry: AutoBackupEntry = {
+      id,
+      createdAt: new Date().toISOString(),
+      size: blob.size,
+    };
+    // Store both the blob and its metadata together
+    await this.autoBackupStore.setItem(id, { entry, blob });
+    return entry;
+  }
+
+  /** List all stored auto-backup entries (sorted newest-first) */
+  async listAutoBackups(): Promise<AutoBackupEntry[]> {
+    const keys = await this.autoBackupStore.keys();
+    const entries: AutoBackupEntry[] = [];
+    for (const key of keys) {
+      const item = await this.autoBackupStore.getItem<{ entry: AutoBackupEntry; blob: Blob }>(key);
+      if (item?.entry) entries.push(item.entry);
+    }
+    entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return entries;
+  }
+
+  /** Retrieve an auto-backup blob by its ID */
+  async getAutoBackup(id: string): Promise<Blob | null> {
+    const item = await this.autoBackupStore.getItem<{ entry: AutoBackupEntry; blob: Blob }>(id);
+    return item?.blob ?? null;
+  }
+
+  /** Delete a single auto-backup */
+  async deleteAutoBackup(id: string): Promise<void> {
+    await this.autoBackupStore.removeItem(id);
+  }
+
+  /** Keep only the N most recent auto-backups, pruning the rest */
+  async pruneAutoBackups(keep: number): Promise<void> {
+    const entries = await this.listAutoBackups(); // already sorted newest-first
+    const toDelete = entries.slice(keep);
+    for (const e of toDelete) {
+      await this.autoBackupStore.removeItem(e.id);
     }
   }
 

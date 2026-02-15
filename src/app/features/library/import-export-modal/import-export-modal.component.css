@@ -3,7 +3,7 @@
   border-radius: var(--radius-md);
   padding: 1.25rem;
   width: 100%;
-  max-width: 520px;
+  max-width: 550px;
   box-shadow: var(--shadow-2xl);
   color: var(--color-text-primary);
   box-sizing: border-box;
@@ -70,3 +70,111 @@
 .spinner { font-size: 18px; color: var(--color-primary-start); }
 
 .file-label { min-width: 120px; color: var(--color-text-secondary); }
+ .nowrap{
+  white-space: nowrap;
+ }
+/* ── Auto-backup section ── */
+
+.auto-backup-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auto-backup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.auto-backup-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.no-backups {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+.backup-list {
+  list-style: none;
+  margin: 10px 0 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.backup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid black;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 6px;
+  transition: background var(--transition-fast);
+}
+
+.backup-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backup-date {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.backup-size {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.backup-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--glass);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
+.btn-icon:hover:not([disabled]) {
+  background: var(--glass-light);
+}
+
+.btn-danger {
+  color: var(--color-error, #e74c3c);
+}
+
+.btn-danger:hover:not([disabled]) {
+  background: rgba(231, 76, 60, 0.15);
+}

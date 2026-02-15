@@ -88,6 +88,13 @@ export interface Document {
   shelfId?: string | null;
 }
 
+/** Represents a single auto-backup stored in IndexedDB */
+export interface AutoBackupEntry {
+  id: string;
+  createdAt: string; // ISO date string
+  size: number; // bytes
+}
+
 export type ThemeOption = 'light' | 'dark' | 'sepia' | 'high-contrast-light' | 'high-contrast-dark';
 export type FlowMode = 'paginated' | 'scrolled';
 export type SpreadMode = 'none' | 'auto' | 'always';

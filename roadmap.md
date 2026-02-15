@@ -61,7 +61,6 @@
 ### Import/Export Options
 - Bulk upload multiple files
 - Export library metadata
-- Backup and restore functionality
 - Import from Calibre, Kindle, etc.
 - Import from cloud storage (Google Drive, Dropbox)
 
