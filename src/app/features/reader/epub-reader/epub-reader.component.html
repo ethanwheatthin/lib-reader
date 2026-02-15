@@ -29,7 +29,12 @@
     (bookmarkRemove)="removeBookmark($event)">
   </app-unified-settings-panel>
 
-  <div #viewer class="epub-viewer" (click)="onViewerClick()" role="document" aria-label="Book content"></div>
+  <div #zoomWrapper class="zoom-wrapper"
+    (click)="onViewerClick()"
+    (touchstart)="onSwipeTouchStart($event)"
+    (touchend)="onSwipeTouchEnd($event)">
+    <div #viewer class="epub-viewer" role="document" aria-label="Book content"></div>
+  </div>
   
   <!-- Top bar: navigation + settings toggle -->
   <nav class="reader-controls" [class.hidden-in-focus]="focusMode()" [class.focus-temporary-show]="focusModeControlsVisible()" aria-label="Reader navigation">
@@ -65,9 +70,9 @@
       <span class="eta-badge" title="Estimated time remaining">{{ eta }}</span>
     }
 
-    <!-- Settings button is always visible, even in focus mode -->
+    <!-- Settings button -->
     <button
-      class="panel-toggle always-visible"
+      class="panel-toggle"
       (click)="togglePanel()"
       [attr.aria-expanded]="panelOpen()"
       aria-label="Open settings panel"
@@ -90,6 +95,22 @@
         <kbd>←</kbd><kbd>→</kbd> Navigate • 
         <kbd>Esc</kbd> Exit
       </small>
+    </div>
+  }
+
+  <!-- Focus mode: floating settings access (pull tab on mobile, button on desktop) -->
+  @if (focusMode()) {
+    <div
+      class="focus-pull-tab"
+      (touchstart)="onPullTabTouchStart($event)"
+      (touchmove)="onPullTabTouchMove($event)"
+      (touchend)="onPullTabTouchEnd($event)"
+      (click)="togglePanel()"
+      role="button"
+      aria-label="Swipe up or tap to open settings"
+      title="Swipe up or tap to open settings">
+      <div class="pull-tab-handle"></div>
+      <span class="pull-tab-label">Settings</span>
     </div>
   }
 </div>

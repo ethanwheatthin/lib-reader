@@ -18,29 +18,23 @@ import {
 import {
   Bookmark,
   ReadingSession,
-  ReaderSettings,
-  DEFAULT_READER_SETTINGS,
   ThemeOption,
-  FlowMode,
   SpreadMode,
   ZoomLevel,
   PageLayout,
-  CustomColorPalette,
-  FONT_SIZE_MIN,
-  FONT_SIZE_STEP,
-  LINE_HEIGHT_MIN,
-  LINE_HEIGHT_STEP,
-  READER_FONTS,
   TocItem,
 } from '../../../core/models/document.model';
+import { EpubReaderSettingsService } from './services/epub-reader-settings.service';
+import { EpubAccessibilityService } from './services/epub-accessibility.service';
+import { EpubFollowModeService } from './services/epub-follow-mode.service';
 
-const STORAGE_KEY = 'epub-reader-settings';
 const LOCATIONS_CACHE_PREFIX = 'epub-locations-';
 
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
   imports: [CommonModule, FormsModule, ReadingProgressComponent, UnifiedSettingsPanelComponent],
+  providers: [EpubReaderSettingsService, EpubAccessibilityService, EpubFollowModeService],
   templateUrl: './epub-reader.component.html',
   styleUrl: './epub-reader.component.css'
 })
@@ -48,9 +42,13 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   @Input() documentId!: string;
   @Output() focusModeChange = new EventEmitter<boolean>();
   @ViewChild('viewer', { static: true }) viewer!: ElementRef;
+  @ViewChild('zoomWrapper', { static: true }) zoomWrapper!: ElementRef;
 
   private store = inject(Store);
   private indexDB = inject(IndexDBService);
+  protected settings = inject(EpubReaderSettingsService);
+  private accessibility = inject(EpubAccessibilityService);
+  private followModeService = inject(EpubFollowModeService);
   private book: any;
   private rendition: any;
 
@@ -78,6 +76,16 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   focusModeControlsVisible = signal<boolean>(false);
   private focusModeControlsTimeout: any = null;
 
+  // --- Focus mode pull-tab swipe gesture ---
+  private pullTabTouchStartY = 0;
+  private pullTabSwiping = false;
+
+  // --- Touch swipe page navigation ---
+  private swipeTouchStartX = 0;
+  private swipeTouchStartY = 0;
+  private swipeTouchStartTime = 0;
+  private swipeActive = false;
+
   // --- Chapters/TOC ---
   chapters = signal<TocItem[]>([]);
   currentChapterHref = signal<string | null>(null);
@@ -89,72 +97,37 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   private currentCfi = '';
   private locationsReady = false;
 
-  // --- Follow mode tracking ---
-  private followModeWords: Array<{ text: string; node: Text; offset: number }> = [];
-  private followModeCurrentIndex = 0;
-  private followModeTimer: any = null;
-  private followModeIsPaused = false;
-  private followModeCurrentRange: Range | null = null;
-  followModePaused = signal<boolean>(false);
+  // --- Resize observer for responsive layout ---
+  private resizeObserver: ResizeObserver | null = null;
+  private resizeDebounceTimer: any = null;
 
-  // --- Reader settings signals ---
-  fontSize = signal<number>(DEFAULT_READER_SETTINGS.fontSize);
-  lineHeight = signal<number>(DEFAULT_READER_SETTINGS.lineHeight);
-  fontFamily = signal<string>(DEFAULT_READER_SETTINGS.fontFamily);
-  theme = signal<ThemeOption>(DEFAULT_READER_SETTINGS.theme);
-  flowMode = signal<FlowMode>(DEFAULT_READER_SETTINGS.flowMode);
-  spreadMode = signal<SpreadMode>(DEFAULT_READER_SETTINGS.spreadMode);
-  focusMode = signal<boolean>(DEFAULT_READER_SETTINGS.focusMode);
-  followMode = signal<boolean>(DEFAULT_READER_SETTINGS.followMode);
-  followModeSpeed = signal<number>(DEFAULT_READER_SETTINGS.followModeSpeed);
-  zoomLevel = signal<ZoomLevel>(DEFAULT_READER_SETTINGS.zoomLevel);
-  pageLayout = signal<PageLayout>(DEFAULT_READER_SETTINGS.pageLayout);
-  letterSpacing = signal<number>(DEFAULT_READER_SETTINGS.letterSpacing);
-  wordHighlighting = signal<boolean>(DEFAULT_READER_SETTINGS.wordHighlighting);
-  bionicReading = signal<boolean>(DEFAULT_READER_SETTINGS.bionicReading);
-  customColorPalette = signal<CustomColorPalette | null>(DEFAULT_READER_SETTINGS.customColorPalette);
-
-  // --- Control constraints ---
-  readonly FONT_SIZE_MIN = FONT_SIZE_MIN;
-  readonly FONT_SIZE_STEP = FONT_SIZE_STEP;
-  readonly LINE_HEIGHT_MIN = LINE_HEIGHT_MIN;
-  readonly LINE_HEIGHT_STEP = LINE_HEIGHT_STEP;
-
-  /** Available font families */
-  readonly fonts = READER_FONTS;
-
-  /** Predefined theme options */
-  readonly themeOptions: { label: string; value: ThemeOption }[] = [
-    { label: 'Light', value: 'light' },
-    { label: 'Dark', value: 'dark' },
-    { label: 'Sepia', value: 'sepia' },
-  ];
-
-  // Settings state as a computed object for child component
-  get currentSettings(): SettingsState {
-    return {
-      fontSize: this.fontSize(),
-      lineHeight: this.lineHeight(),
-      fontFamily: this.fontFamily(),
-      theme: this.theme(),
-      flowMode: this.flowMode(),
-      spreadMode: this.spreadMode(),
-      focusMode: this.focusMode(),
-      followMode: this.followMode(),
-      followModeSpeed: this.followModeSpeed(),
-      zoomLevel: this.zoomLevel(),
-      pageLayout: this.pageLayout(),
-      letterSpacing: this.letterSpacing(),
-      wordHighlighting: this.wordHighlighting(),
-      bionicReading: this.bionicReading(),
-      customColorPalette: this.customColorPalette(),
-    };
-  }
+  // Delegate convenience accessors used by the template
+  get fontSize() { return this.settings.fontSize; }
+  get lineHeight() { return this.settings.lineHeight; }
+  get fontFamily() { return this.settings.fontFamily; }
+  get theme() { return this.settings.theme; }
+  get flowMode() { return this.settings.flowMode; }
+  get spreadMode() { return this.settings.spreadMode; }
+  get focusMode() { return this.settings.focusMode; }
+  get followMode() { return this.settings.followMode; }
+  get followModeSpeed() { return this.settings.followModeSpeed; }
+  get zoomLevel() { return this.settings.zoomLevel; }
+  get pageLayout() { return this.settings.pageLayout; }
+  get followModePaused() { return this.followModeService.paused; }
+  get currentSettings(): SettingsState { return this.settings.currentSettings; }
 
   async ngOnInit(): Promise<void> {
-    this.loadSettings();
+    this.settings.loadSettings();
+    this.focusModeChange.emit(this.settings.focusMode());
     this.startReadingSession();
     this.setupKeyboardShortcuts();
+
+    // Configure follow mode service
+    this.followModeService.configure(
+      () => this.nextPage(),
+      () => this.settings.followMode(),
+      this.settings.followModeSpeed(),
+    );
 
     try {
       const blob = await this.indexDB.getFile(this.documentId);
@@ -162,13 +135,26 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         const arrayBuffer = await blob.arrayBuffer();
         this.book = ePub(arrayBuffer);
 
+        // Wait a frame so the flex layout has computed final dimensions
+        // for the zoom-wrapper before epub.js measures the container.
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+        const wrapperEl = this.zoomWrapper.nativeElement as HTMLElement;
+        const padBottom = parseFloat(getComputedStyle(wrapperEl).paddingBottom) || 0;
+        const initWidth = Math.floor(wrapperEl.clientWidth) || 600;
+        const initHeight = Math.floor(wrapperEl.clientHeight - padBottom) || 400;
+
         this.rendition = this.book.renderTo(this.viewer.nativeElement, {
-          width: this.viewer.nativeElement.clientWidth || '100%',
-          height: this.viewer.nativeElement.clientHeight || '100%',
-          spread: this.spreadFromPageLayout(this.pageLayout()),
-          flow: this.flowMode(),
+          width: initWidth,
+          height: initHeight,
+          spread: this.spreadFromPageLayout(this.settings.pageLayout()),
+          flow: this.settings.flowMode(),
           allowScriptedContent: true,
         });
+
+        // Wire up services that depend on the rendition
+        this.accessibility.setRendition(this.rendition);
+        this.followModeService.setRendition(this.rendition);
 
         // Load table of contents
         await this.loadTableOfContents();
@@ -208,8 +194,15 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         // Attach keyboard listeners to the epub iframe
         this.attachIframeKeyboardListeners();
 
+        // Attach touch swipe listeners to the epub iframe (and re-attach on page turns)
+        this.attachIframeSwipeListeners();
+        this.rendition.on('rendered', this.swipeRenderedHandler);
+
         // Try to load cached locations for instant progress, otherwise generate
         await this.loadOrGenerateLocations();
+
+        // Set up resize observer so content flexes with screen size
+        this.setupResizeObserver();
       }
     } catch (error) {
       console.error('Error loading EPUB:', error);
@@ -220,14 +213,15 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.endReadingSession();
     this.cleanupKeyboardShortcuts();
     this.detachIframeKeyboardListeners();
-    this.cleanupFollowMode();
+    this.followModeService.cleanup();
+    this.teardownResizeObserver();
     if (this.focusModeControlsTimeout) {
       clearTimeout(this.focusModeControlsTimeout);
     }
     if (this.rendition) {
-      this.rendition.off('rendered', this.bionicRenderedHandler);
-      this.rendition.off('rendered', this.wordHighlightRenderedHandler);
-      this.rendition.off('rendered', this.customPaletteRenderedHandler);
+      this.accessibility.destroy();
+      this.rendition.off('rendered', this.swipeRenderedHandler);
+      this.detachIframeSwipeListeners();
       this.rendition.destroy();
     }
   }
@@ -246,6 +240,18 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     if (this.rendition) {
       await this.rendition.prev();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Touch swipe navigation (template-bound wrappers)
+  // ---------------------------------------------------------------------------
+
+  onSwipeTouchStart(event: TouchEvent): void {
+    this.swipeTouchStart(event);
+  }
+
+  onSwipeTouchEnd(event: TouchEvent): void {
+    this.swipeTouchEnd(event);
   }
 
   // ---------------------------------------------------------------------------
@@ -278,13 +284,41 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   }
 
   exitFocusMode(): void {
-    this.focusMode.set(false);
+    this.settings.focusMode.set(false);
     this.focusModeControlsVisible.set(false);
     if (this.focusModeControlsTimeout) {
       clearTimeout(this.focusModeControlsTimeout);
     }
     this.focusModeChange.emit(false);
-    this.saveSettings();
+    this.settings.saveSettings();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Focus mode pull-tab swipe gesture (mobile)
+  // ---------------------------------------------------------------------------
+
+  onPullTabTouchStart(event: TouchEvent): void {
+    this.pullTabTouchStartY = event.touches[0].clientY;
+    this.pullTabSwiping = true;
+  }
+
+  onPullTabTouchMove(event: TouchEvent): void {
+    if (!this.pullTabSwiping) return;
+    // Prevent page scroll while swiping the pull tab
+    event.preventDefault();
+  }
+
+  onPullTabTouchEnd(event: TouchEvent): void {
+    if (!this.pullTabSwiping) return;
+    this.pullTabSwiping = false;
+
+    const endY = event.changedTouches[0].clientY;
+    const deltaY = this.pullTabTouchStartY - endY;
+
+    // Swipe up threshold: 40px is enough to feel intentional
+    if (deltaY > 40) {
+      this.panelOpen.set(true);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -292,96 +326,62 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // ---------------------------------------------------------------------------
 
   onSettingsChange(newSettings: SettingsState): void {
-    const needsRecreate = 
-      this.flowMode() !== newSettings.flowMode || 
-      this.spreadMode() !== newSettings.spreadMode ||
-      this.pageLayout() !== newSettings.pageLayout;
+    const needsRecreate =
+      this.settings.flowMode() !== newSettings.flowMode ||
+      this.settings.spreadMode() !== newSettings.spreadMode ||
+      this.settings.pageLayout() !== newSettings.pageLayout;
+
+    // Detect per-feature changes before applying
+    const focusModeChanged = this.settings.focusMode() !== newSettings.focusMode;
+    const followModeChanged = this.settings.followMode() !== newSettings.followMode;
+    const followSpeedChanged = this.settings.followModeSpeed() !== newSettings.followModeSpeed;
+    const zoomChanged = this.settings.zoomLevel() !== newSettings.zoomLevel;
+    const letterSpacingChanged = this.settings.letterSpacing() !== newSettings.letterSpacing;
+    const wordHighlightingChanged = this.settings.wordHighlighting() !== newSettings.wordHighlighting;
+    const bionicReadingChanged = this.settings.bionicReading() !== newSettings.bionicReading;
+    const customPaletteChanged =
+      JSON.stringify(this.settings.customColorPalette()) !== JSON.stringify(newSettings.customColorPalette);
 
     // Map pageLayout to epub.js spread mode
     const mappedSpread = this.spreadFromPageLayout(newSettings.pageLayout);
     newSettings = { ...newSettings, spreadMode: mappedSpread };
 
-    // Update local signals
-    this.fontSize.set(newSettings.fontSize);
-    this.lineHeight.set(newSettings.lineHeight);
-    this.fontFamily.set(newSettings.fontFamily);
-    this.theme.set(newSettings.theme);
-    this.flowMode.set(newSettings.flowMode);
-    this.spreadMode.set(newSettings.spreadMode);
-    const focusModeChanged = this.focusMode() !== newSettings.focusMode;
-    this.focusMode.set(newSettings.focusMode);
-    const followModeChanged = this.followMode() !== newSettings.followMode;
-    this.followMode.set(newSettings.followMode);
-    const followSpeedChanged = this.followModeSpeed() !== newSettings.followModeSpeed;
-    this.followModeSpeed.set(newSettings.followModeSpeed);
-    const zoomChanged = this.zoomLevel() !== newSettings.zoomLevel;
-    this.zoomLevel.set(newSettings.zoomLevel);
-    this.pageLayout.set(newSettings.pageLayout);
-
-    // Accessibility settings
-    const letterSpacingChanged = this.letterSpacing() !== newSettings.letterSpacing;
-    this.letterSpacing.set(newSettings.letterSpacing);
-    const wordHighlightingChanged = this.wordHighlighting() !== newSettings.wordHighlighting;
-    this.wordHighlighting.set(newSettings.wordHighlighting);
-    const bionicReadingChanged = this.bionicReading() !== newSettings.bionicReading;
-    this.bionicReading.set(newSettings.bionicReading);
-    const customPaletteChanged =
-      JSON.stringify(this.customColorPalette()) !== JSON.stringify(newSettings.customColorPalette);
-    this.customColorPalette.set(newSettings.customColorPalette);
+    // Batch-update all signals via the settings service
+    this.settings.applySettingsState(newSettings);
 
     if (focusModeChanged) {
       this.focusModeChange.emit(newSettings.focusMode);
     }
 
     if (needsRecreate) {
-      // Flow/spread/pageLayout changes require recreating the rendition
       this.recreateRendition();
     } else if (this.rendition) {
-      // Apply other settings without recreating
       this.rendition.themes.fontSize(`${newSettings.fontSize}px`);
       this.rendition.themes.select(newSettings.theme);
       this.applyLineHeightAndFont();
     }
 
-    // Apply zoom independently (CSS-based, no rendition recreation needed)
-    if (zoomChanged) {
-      this.applyZoom();
-    }
-
-    // Apply letter spacing
-    if (letterSpacingChanged) {
-      this.applyLetterSpacing();
-    }
-
-    // Apply bionic reading
-    if (bionicReadingChanged) {
-      this.applyBionicReading();
-    }
-
-    // Apply word highlighting
-    if (wordHighlightingChanged) {
-      this.applyWordHighlighting();
-    }
-
-    // Apply custom color palette
-    if (customPaletteChanged) {
-      this.applyCustomColorPalette();
-    }
+    if (zoomChanged) this.applyZoom();
+    if (letterSpacingChanged) this.accessibility.applyLetterSpacing();
+    if (bionicReadingChanged) this.accessibility.applyBionicReading();
+    if (wordHighlightingChanged) this.accessibility.applyWordHighlighting();
+    if (customPaletteChanged) this.accessibility.applyCustomColorPalette();
 
     // Handle follow mode toggle or speed change
     if (followModeChanged) {
       if (newSettings.followMode) {
-        this.startFollowMode();
+        this.followModeService.setSpeed(newSettings.followModeSpeed);
+        this.followModeService.start();
       } else {
-        this.cleanupFollowMode();
+        this.followModeService.cleanup();
       }
-    } else if (followSpeedChanged && this.followMode()) {
-      // Speed changed while follow mode is active - restart timer with new speed
-      this.restartFollowModeTimer();
+    } else if (followSpeedChanged && this.settings.followMode()) {
+      this.followModeService.setSpeed(newSettings.followModeSpeed);
+      this.followModeService.restartTimer();
     }
 
     this.applyHostTheme(newSettings.theme);
-    this.saveSettings();
+    this.settings.saveSettings();
   }
 
 
@@ -398,7 +398,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   private registerThemes(): void {
     if (!this.rendition) return;
 
-    const lh = this.lineHeight();
+    const lh = this.settings.lineHeight();
 
     this.rendition.themes.register('light', {
       body: {
@@ -459,23 +459,23 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   private applyAllSettings(): void {
     if (!this.rendition) return;
 
-    this.rendition.themes.fontSize(`${this.fontSize()}px`);
-    this.rendition.themes.select(this.theme());
+    this.rendition.themes.fontSize(`${this.settings.fontSize()}px`);
+    this.rendition.themes.select(this.settings.theme());
     this.applyLineHeightAndFont();
-    this.applyHostTheme(this.theme());
+    this.applyHostTheme(this.settings.theme());
     this.applyZoom();
-    this.applyLetterSpacing();
-    this.applyBionicReading();
-    this.applyWordHighlighting();
-    this.applyCustomColorPalette();
+    this.accessibility.applyLetterSpacing();
+    this.accessibility.applyBionicReading();
+    this.accessibility.applyWordHighlighting();
+    this.accessibility.applyCustomColorPalette();
   }
 
   /** Re-apply line-height and font-family overrides (needed after theme selection) */
   private applyLineHeightAndFont(): void {
     if (!this.rendition) return;
-    this.rendition.themes.override('line-height', `${this.lineHeight()}`);
-    this.rendition.themes.override('font-family', this.fontFamily());
-    this.rendition.themes.override('letter-spacing', `${this.letterSpacing()}em`);
+    this.rendition.themes.override('line-height', `${this.settings.lineHeight()}`);
+    this.rendition.themes.override('font-family', this.settings.fontFamily());
+    this.rendition.themes.override('letter-spacing', `${this.settings.letterSpacing()}em`);
   }
 
   /**
@@ -489,54 +489,109 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Resize observer — makes content flex with screen size
+  // ---------------------------------------------------------------------------
+
+  private setupResizeObserver(): void {
+    const wrapper = this.zoomWrapper?.nativeElement as HTMLElement;
+    if (!wrapper) return;
+
+    this.resizeObserver = new ResizeObserver(() => {
+      // Debounce to avoid excessive resize calls during drag/animation
+      if (this.resizeDebounceTimer) clearTimeout(this.resizeDebounceTimer);
+      this.resizeDebounceTimer = setTimeout(() => this.handleContainerResize(), 150);
+    });
+    this.resizeObserver.observe(wrapper);
+  }
+
+  private teardownResizeObserver(): void {
+    if (this.resizeDebounceTimer) clearTimeout(this.resizeDebounceTimer);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+  }
+
   /**
-   * Apply the selected zoom level via CSS transform on the viewer element.
-   * Percentage-based zooms scale the content while fit modes reset to default.
+   * Called when the zoom-wrapper element is resized (e.g. window resize,
+   * panel open/close). Recalculates the rendition size so epub.js content
+   * fills the available space at the current zoom level.
+   */
+  private handleContainerResize(): void {
+    if (!this.rendition) return;
+
+    const wrapper = this.zoomWrapper?.nativeElement as HTMLElement;
+    if (!wrapper) return;
+
+    const zoom = this.settings.zoomLevel();
+    const scale = this.zoomScaleFactor(zoom);
+
+    // Use clientWidth/clientHeight which represent the content box
+    // (excluding scrollbar but including padding). Subtract the
+    // bottom padding reserved for the controls bar overlay.
+    const paddingBottom = parseFloat(getComputedStyle(wrapper).paddingBottom) || 0;
+    const contentWidth = wrapper.clientWidth;
+    const contentHeight = wrapper.clientHeight - paddingBottom;
+
+    // Tell epub.js how large its rendering area is.
+    // For percentage zooms the viewer is scaled up via CSS transform,
+    // so the rendition should be sized to the *unscaled* wrapper.
+    const renditionWidth = Math.floor(contentWidth / scale);
+    const renditionHeight = Math.floor(contentHeight / scale);
+
+    this.rendition.resize(renditionWidth, renditionHeight);
+  }
+
+  /**
+   * Apply the selected zoom level. Fit modes let the content fill the
+   * wrapper naturally. Percentage modes use CSS transform to scale the
+   * epub.js iframe and wrap it in a scrollable container.
    */
   private applyZoom(): void {
-    const container = this.viewer?.nativeElement as HTMLElement;
-    if (!container) return;
+    const viewer = this.viewer?.nativeElement as HTMLElement;
+    const wrapper = this.zoomWrapper?.nativeElement as HTMLElement;
+    if (!viewer || !wrapper) return;
 
-    const zoom = this.zoomLevel();
-    // Wrap the epub-viewer in a scrollable context for zoomed content
-    const parent = container.parentElement;
+    const zoom = this.settings.zoomLevel();
+    const scale = this.zoomScaleFactor(zoom);
+    const isFit = zoom === 'fit-width' || zoom === 'fit-screen';
 
+    if (isFit) {
+      // Reset transform — content fills the wrapper naturally
+      viewer.style.transform = '';
+      viewer.style.transformOrigin = '';
+      viewer.style.width = '100%';
+      viewer.style.height = '100%';
+      wrapper.classList.remove('zoom-scrollable');
+
+      if (zoom === 'fit-width') {
+        viewer.style.maxWidth = '100%';
+      } else {
+        viewer.style.maxWidth = '';
+      }
+    } else {
+      // Percentage zoom — scale via CSS transform
+      viewer.style.transform = `scale(${scale})`;
+      viewer.style.transformOrigin = 'top left';
+      // Size the viewer at 100% of wrapper; the transform handles magnification
+      viewer.style.width = '100%';
+      viewer.style.height = '100%';
+      viewer.style.maxWidth = '';
+      wrapper.classList.add('zoom-scrollable');
+    }
+
+    // Re-sync epub.js rendition dimensions after zoom change
+    this.handleContainerResize();
+  }
+
+  /** Convert a ZoomLevel token to a numeric scale factor. */
+  private zoomScaleFactor(zoom: ZoomLevel): number {
     switch (zoom) {
-      case 'fit-width':
-        container.style.transform = '';
-        container.style.transformOrigin = '';
-        container.style.maxWidth = '100%';
-        container.style.width = '100%';
-        if (parent) parent.style.overflow = '';
-        break;
-      case 'fit-screen':
-        container.style.transform = '';
-        container.style.transformOrigin = '';
-        container.style.maxWidth = '';
-        container.style.width = '';
-        if (parent) parent.style.overflow = '';
-        break;
-      case '100':
-        container.style.transform = 'scale(1)';
-        container.style.transformOrigin = 'top center';
-        container.style.maxWidth = '';
-        container.style.width = '';
-        if (parent) parent.style.overflow = 'auto';
-        break;
-      case '200':
-        container.style.transform = 'scale(2)';
-        container.style.transformOrigin = 'top center';
-        container.style.maxWidth = '';
-        container.style.width = '';
-        if (parent) parent.style.overflow = 'auto';
-        break;
-      case '300':
-        container.style.transform = 'scale(3)';
-        container.style.transformOrigin = 'top center';
-        container.style.maxWidth = '';
-        container.style.width = '';
-        if (parent) parent.style.overflow = 'auto';
-        break;
+      case '100': return 1;
+      case '200': return 2;
+      case '300': return 3;
+      default:    return 1; // fit modes are unscaled
     }
   }
 
@@ -549,391 +604,6 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       case 'two-page':  return 'always';
       case 'one-page':  return 'none';
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Accessibility: Letter spacing
-  // ---------------------------------------------------------------------------
-
-  /** Apply letter spacing override to the epub rendition */
-  private applyLetterSpacing(): void {
-    if (!this.rendition) return;
-    this.rendition.themes.override('letter-spacing', `${this.letterSpacing()}em`);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Accessibility: Bionic reading
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Apply or remove bionic reading mode. Bionic reading bolds the first
-   * portion of each word so the brain can "auto-complete" the rest.
-   */
-  private applyBionicReading(): void {
-    if (!this.rendition) return;
-
-    try {
-      const contents = this.rendition.getContents();
-      if (!contents || contents.length === 0) return;
-
-      const iframe = contents[0];
-      const doc = iframe.document as Document;
-      if (!doc) return;
-
-      if (this.bionicReading()) {
-        this.injectBionicReading(doc);
-      } else {
-        this.removeBionicReading(doc);
-      }
-    } catch (error) {
-      console.warn('Could not apply bionic reading:', error);
-    }
-
-    // Re-apply on page changes
-    if (this.bionicReading()) {
-      this.rendition.off('rendered', this.bionicRenderedHandler);
-      this.rendition.on('rendered', this.bionicRenderedHandler);
-    } else {
-      this.rendition.off('rendered', this.bionicRenderedHandler);
-    }
-  }
-
-  private bionicRenderedHandler = () => {
-    if (!this.bionicReading() || !this.rendition) return;
-    try {
-      const contents = this.rendition.getContents();
-      if (contents && contents.length > 0) {
-        const doc = contents[0].document as Document;
-        if (doc) this.injectBionicReading(doc);
-      }
-    } catch {
-      // Silently ignore
-    }
-  };
-
-  /**
-   * Walk through all text nodes and wrap the first portion of each word
-   * in a `<b class="bionic-bold">` element.
-   */
-  private injectBionicReading(doc: Document): void {
-    // Remove existing bionic markup first
-    this.removeBionicReading(doc);
-
-    const walker = doc.createTreeWalker(
-      doc.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          const parent = node.parentElement;
-          if (!parent) return NodeFilter.FILTER_REJECT;
-          if (['SCRIPT', 'STYLE', 'B'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
-          if (parent.classList.contains('bionic-bold')) return NodeFilter.FILTER_REJECT;
-          return node.textContent && node.textContent.trim().length > 0
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_REJECT;
-        },
-      }
-    );
-
-    const textNodes: Text[] = [];
-    let currentNode: Node | null;
-    while ((currentNode = walker.nextNode())) {
-      textNodes.push(currentNode as Text);
-    }
-
-    for (const textNode of textNodes) {
-      const text = textNode.textContent || '';
-      const fragment = doc.createDocumentFragment();
-
-      // Split by word boundaries while preserving whitespace
-      const parts = text.split(/(\s+)/);
-      for (const part of parts) {
-        if (/^\s+$/.test(part)) {
-          fragment.appendChild(doc.createTextNode(part));
-        } else if (part.length > 0) {
-          // Bold the first ~half of the word (min 1 char)
-          const boldLen = Math.max(1, Math.ceil(part.length * 0.5));
-          const boldPart = part.slice(0, boldLen);
-          const restPart = part.slice(boldLen);
-
-          const b = doc.createElement('b');
-          b.className = 'bionic-bold';
-          b.style.fontWeight = '700';
-          b.textContent = boldPart;
-          fragment.appendChild(b);
-
-          if (restPart) {
-            fragment.appendChild(doc.createTextNode(restPart));
-          }
-        }
-      }
-
-      textNode.parentNode?.replaceChild(fragment, textNode);
-    }
-  }
-
-  /** Remove all bionic reading markup from the document */
-  private removeBionicReading(doc: Document): void {
-    const bolds = doc.querySelectorAll('b.bionic-bold');
-    bolds.forEach((b) => {
-      const parent = b.parentNode;
-      if (parent) {
-        parent.replaceChild(doc.createTextNode(b.textContent || ''), b);
-        parent.normalize(); // Merge adjacent text nodes
-      }
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Accessibility: Word (sentence) highlighting during reading
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Toggle sentence-level highlighting on page content.
-   * When enabled, the current sentence is highlighted as the user reads.
-   */
-  private applyWordHighlighting(): void {
-    if (!this.rendition) return;
-
-    if (this.wordHighlighting()) {
-      this.rendition.off('rendered', this.wordHighlightRenderedHandler);
-      this.rendition.on('rendered', this.wordHighlightRenderedHandler);
-      this.injectWordHighlightStyles();
-    } else {
-      this.rendition.off('rendered', this.wordHighlightRenderedHandler);
-      this.removeWordHighlightStyles();
-    }
-  }
-
-  private wordHighlightRenderedHandler = () => {
-    if (!this.wordHighlighting() || !this.rendition) return;
-    this.injectWordHighlightStyles();
-  };
-
-  /**
-   * Inject CSS-based sentence highlighting into the epub iframe.
-   * Uses a hover-like effect to highlight the sentence the user is reading.
-   */
-  private injectWordHighlightStyles(): void {
-    if (!this.rendition) return;
-
-    try {
-      const contents = this.rendition.getContents();
-      if (!contents || contents.length === 0) return;
-
-      const doc = contents[0].document as Document;
-      if (!doc) return;
-
-      // Remove existing style if any
-      const existing = doc.getElementById('word-highlight-style');
-      if (existing) existing.remove();
-
-      const style = doc.createElement('style');
-      style.id = 'word-highlight-style';
-
-      const isHighContrast =
-        this.theme() === 'high-contrast-light' || this.theme() === 'high-contrast-dark';
-      const isDark = this.theme() === 'dark' || this.theme() === 'high-contrast-dark';
-
-      let highlightBg: string;
-      let highlightOutline: string;
-      if (isHighContrast && isDark) {
-        highlightBg = 'rgba(255, 255, 0, 0.25)';
-        highlightOutline = '2px solid rgba(255, 255, 0, 0.5)';
-      } else if (isHighContrast) {
-        highlightBg = 'rgba(0, 0, 238, 0.12)';
-        highlightOutline = '2px solid rgba(0, 0, 238, 0.3)';
-      } else if (isDark) {
-        highlightBg = 'rgba(79, 172, 254, 0.15)';
-        highlightOutline = 'none';
-      } else {
-        highlightBg = 'rgba(79, 172, 254, 0.12)';
-        highlightOutline = 'none';
-      }
-
-      style.textContent = `
-        p:hover, li:hover, span:hover, blockquote:hover, h1:hover, h2:hover, h3:hover, h4:hover, h5:hover, h6:hover {
-          background: ${highlightBg} !important;
-          outline: ${highlightOutline};
-          outline-offset: 2px;
-          border-radius: 3px;
-          transition: background 0.15s ease;
-        }
-      `;
-
-      doc.head.appendChild(style);
-    } catch (error) {
-      console.warn('Could not inject word highlight styles:', error);
-    }
-  }
-
-  /** Remove sentence highlight styles from the epub iframe */
-  private removeWordHighlightStyles(): void {
-    if (!this.rendition) return;
-
-    try {
-      const contents = this.rendition.getContents();
-      if (!contents || contents.length === 0) return;
-
-      const doc = contents[0].document as Document;
-      if (!doc) return;
-
-      const existing = doc.getElementById('word-highlight-style');
-      if (existing) existing.remove();
-    } catch {
-      // Silently ignore
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Accessibility: Custom color palette
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Apply a custom color palette to the epub rendition.
-   * Overrides the theme colors with user-specified values.
-   */
-  private applyCustomColorPalette(): void {
-    if (!this.rendition) return;
-
-    const palette = this.customColorPalette();
-
-    if (palette) {
-      this.rendition.themes.override('background', palette.background);
-      this.rendition.themes.override('color', palette.text);
-
-      // Also inject link color overrides
-      try {
-        const contents = this.rendition.getContents();
-        if (contents && contents.length > 0) {
-          const doc = contents[0].document as Document;
-          if (doc) {
-            const existing = doc.getElementById('custom-palette-style');
-            if (existing) existing.remove();
-
-            const style = doc.createElement('style');
-            style.id = 'custom-palette-style';
-            style.textContent = `
-              body { background: ${palette.background} !important; color: ${palette.text} !important; }
-              a, a:link, a:visited { color: ${palette.link} !important; }
-            `;
-            doc.head.appendChild(style);
-          }
-        }
-      } catch {
-        // Silently ignore
-      }
-
-      // Re-apply on page changes
-      this.rendition.off('rendered', this.customPaletteRenderedHandler);
-      this.rendition.on('rendered', this.customPaletteRenderedHandler);
-    } else {
-      // Remove custom palette overrides — re-select the current theme
-      this.rendition.off('rendered', this.customPaletteRenderedHandler);
-      this.rendition.themes.select(this.theme());
-      this.removeCustomPaletteStyles();
-    }
-  }
-
-  private customPaletteRenderedHandler = () => {
-    if (!this.customColorPalette() || !this.rendition) return;
-    const palette = this.customColorPalette()!;
-    try {
-      const contents = this.rendition.getContents();
-      if (contents && contents.length > 0) {
-        const doc = contents[0].document as Document;
-        if (doc) {
-          const existing = doc.getElementById('custom-palette-style');
-          if (existing) existing.remove();
-
-          const style = doc.createElement('style');
-          style.id = 'custom-palette-style';
-          style.textContent = `
-            body { background: ${palette.background} !important; color: ${palette.text} !important; }
-            a, a:link, a:visited { color: ${palette.link} !important; }
-          `;
-          doc.head.appendChild(style);
-        }
-      }
-    } catch {
-      // Silently ignore
-    }
-  };
-
-  /** Remove custom palette styles from the epub iframe */
-  private removeCustomPaletteStyles(): void {
-    if (!this.rendition) return;
-    try {
-      const contents = this.rendition.getContents();
-      if (contents && contents.length > 0) {
-        const doc = contents[0].document as Document;
-        if (doc) {
-          const existing = doc.getElementById('custom-palette-style');
-          if (existing) existing.remove();
-        }
-      }
-    } catch {
-      // Silently ignore
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Persistence helpers
-  // ---------------------------------------------------------------------------
-
-  /** Save the current signal values to localStorage */
-  private saveSettings(): void {
-    const settings: ReaderSettings = {
-      fontSize: this.fontSize(),
-      lineHeight: this.lineHeight(),
-      fontFamily: this.fontFamily(),
-      theme: this.theme(),
-      flowMode: this.flowMode(),
-      spreadMode: this.spreadMode(),
-      focusMode: this.focusMode(),
-      followMode: this.followMode(),
-      followModeSpeed: this.followModeSpeed(),
-      zoomLevel: this.zoomLevel(),
-      pageLayout: this.pageLayout(),
-      letterSpacing: this.letterSpacing(),
-      wordHighlighting: this.wordHighlighting(),
-      bionicReading: this.bionicReading(),
-      customColorPalette: this.customColorPalette(),
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      console.warn('Could not persist reader settings to localStorage');
-    }
-  }
-
-  /** Load persisted settings from localStorage into signals */
-  private loadSettings(): void {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved: Partial<ReaderSettings> = JSON.parse(raw);
-        if (saved.fontSize) this.fontSize.set(saved.fontSize);
-        if (saved.lineHeight) this.lineHeight.set(saved.lineHeight);
-        if (saved.fontFamily) this.fontFamily.set(saved.fontFamily);
-        if (saved.theme) this.theme.set(saved.theme);
-        if (saved.flowMode) this.flowMode.set(saved.flowMode);
-        if (saved.spreadMode) this.spreadMode.set(saved.spreadMode);
-        if (saved.focusMode != null) this.focusMode.set(saved.focusMode);
-        if (saved.followMode != null) this.followMode.set(saved.followMode);
-        if (saved.followModeSpeed) this.followModeSpeed.set(saved.followModeSpeed);
-        if (saved.zoomLevel) this.zoomLevel.set(saved.zoomLevel);
-        if (saved.pageLayout) this.pageLayout.set(saved.pageLayout);
-        if (saved.letterSpacing != null) this.letterSpacing.set(saved.letterSpacing);
-        if (saved.wordHighlighting != null) this.wordHighlighting.set(saved.wordHighlighting);
-        if (saved.bionicReading != null) this.bionicReading.set(saved.bionicReading);
-        if (saved.customColorPalette !== undefined) this.customColorPalette.set(saved.customColorPalette);
-      }
-    } catch {
-      console.warn('Could not load reader settings from localStorage');
-    }
-    // Emit initial focus mode state after loading settings
-    this.focusModeChange.emit(this.focusMode());
   }
 
   // ---------------------------------------------------------------------------
@@ -1153,35 +823,38 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     if (event.key === 'f' || event.key === 'F') {
       if (!isInputActive) {
         event.preventDefault();
-        this.focusMode.update(v => !v);
-        this.focusModeChange.emit(this.focusMode());
-        this.saveSettings();
+        this.settings.focusMode.update(v => !v);
+        this.focusModeChange.emit(this.settings.focusMode());
+        this.settings.saveSettings();
       }
     }
 
     // Follow mode controls
-    if (this.followMode()) {
+    if (this.settings.followMode()) {
       if (event.key === ' ' || event.key === 'Spacebar') {
         event.preventDefault();
-        this.toggleFollowModePause();
+        this.followModeService.togglePause();
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
-        this.advanceFollowMode();
+        this.followModeService.advance();
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        this.retreatFollowMode();
+        this.followModeService.retreat();
       } else if (event.key === 'Escape') {
         event.preventDefault();
-        this.followMode.set(false);
-        this.cleanupFollowMode();
-        this.saveSettings();
+        this.settings.followMode.set(false);
+        this.followModeService.cleanup();
+        this.settings.saveSettings();
       }
       return; // Don't process other shortcuts in follow mode
     }
 
     // Page navigation and other shortcuts (when NOT in follow mode and NOT in input)
     if (!isInputActive) {
-      if (event.key === 'ArrowRight') {
+      if (event.key === 'Escape' && this.settings.focusMode()) {
+        event.preventDefault();
+        this.exitFocusMode();
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         this.nextPage();
       } else if (event.key === 'ArrowLeft') {
@@ -1218,23 +891,23 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   }
 
   private increaseFontSize(): void {
-    const newSize = this.fontSize() + this.FONT_SIZE_STEP;
-    this.fontSize.set(newSize);
+    const newSize = this.settings.fontSize() + this.settings.FONT_SIZE_STEP;
+    this.settings.fontSize.set(newSize);
     if (this.rendition) {
       this.rendition.themes.fontSize(`${newSize}px`);
     }
-    this.saveSettings();
+    this.settings.saveSettings();
   }
 
   private decreaseFontSize(): void {
-    const currentSize = this.fontSize();
-    if (currentSize > this.FONT_SIZE_MIN) {
-      const newSize = Math.max(this.FONT_SIZE_MIN, currentSize - this.FONT_SIZE_STEP);
-      this.fontSize.set(newSize);
+    const currentSize = this.settings.fontSize();
+    if (currentSize > this.settings.FONT_SIZE_MIN) {
+      const newSize = Math.max(this.settings.FONT_SIZE_MIN, currentSize - this.settings.FONT_SIZE_STEP);
+      this.settings.fontSize.set(newSize);
       if (this.rendition) {
         this.rendition.themes.fontSize(`${newSize}px`);
       }
-      this.saveSettings();
+      this.settings.saveSettings();
     }
   }
 
@@ -1282,6 +955,111 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   }
 
   // ---------------------------------------------------------------------------
+  // Touch swipe page navigation (mobile)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Bound touch-start handler for swipe page navigation.
+   * Stored as arrow function so it can be added/removed by reference.
+   */
+  private swipeTouchStart = (event: TouchEvent) => {
+    // Don't start a swipe if the settings panel is open
+    if (this.panelOpen()) return;
+
+    const touch = event.touches[0];
+    this.swipeTouchStartX = touch.clientX;
+    this.swipeTouchStartY = touch.clientY;
+    this.swipeTouchStartTime = Date.now();
+    this.swipeActive = true;
+  };
+
+  private swipeTouchEnd = (event: TouchEvent) => {
+    if (!this.swipeActive) return;
+    this.swipeActive = false;
+
+    // Only handle swipe page navigation in paginated mode
+    if (this.settings.flowMode() !== 'paginated') return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - this.swipeTouchStartX;
+    const deltaY = touch.clientY - this.swipeTouchStartY;
+    const elapsed = Date.now() - this.swipeTouchStartTime;
+
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+
+    // Thresholds: minimum 50px horizontal distance, must be more horizontal
+    // than vertical (ratio > 1.5), and completed within 500ms
+    const MIN_DISTANCE = 50;
+    const MAX_TIME = 500;
+    const DIRECTION_RATIO = 1.5;
+
+    if (absDeltaX < MIN_DISTANCE || elapsed > MAX_TIME) return;
+    if (absDeltaY * DIRECTION_RATIO > absDeltaX) return; // too vertical
+
+    if (deltaX < 0) {
+      // Swiped left → next page
+      this.nextPage();
+    } else {
+      // Swiped right → previous page
+      this.prevPage();
+    }
+  };
+
+  /**
+   * Attach touch listeners to the epub.js iframe document for swipe detection.
+   * Called after initial render and again via the `rendered` event callback.
+   */
+  private attachIframeSwipeListeners(): void {
+    if (!this.rendition) return;
+
+    try {
+      const contents = this.rendition.getContents();
+      if (contents && contents.length > 0) {
+        contents.forEach((content: any) => {
+          const iframeDoc = content.document as Document;
+          if (iframeDoc) {
+            iframeDoc.addEventListener('touchstart', this.swipeTouchStart, { passive: true });
+            iframeDoc.addEventListener('touchend', this.swipeTouchEnd, { passive: true });
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Could not attach iframe swipe listeners:', error);
+    }
+  }
+
+  /**
+   * Remove touch listeners from the epub.js iframe documents.
+   */
+  private detachIframeSwipeListeners(): void {
+    if (!this.rendition) return;
+
+    try {
+      const contents = this.rendition.getContents();
+      if (contents && contents.length > 0) {
+        contents.forEach((content: any) => {
+          const iframeDoc = content.document as Document;
+          if (iframeDoc) {
+            iframeDoc.removeEventListener('touchstart', this.swipeTouchStart);
+            iframeDoc.removeEventListener('touchend', this.swipeTouchEnd);
+          }
+        });
+      }
+    } catch {
+      // Silently ignore cleanup errors
+    }
+  }
+
+  /**
+   * Re-attach swipe listeners each time epub.js renders a new section
+   * (the iframe content is replaced on page turns).
+   */
+  private swipeRenderedHandler = () => {
+    this.attachIframeSwipeListeners();
+  };
+
+  // ---------------------------------------------------------------------------
   // Rendition recreation (for flow/spread changes)
   // ---------------------------------------------------------------------------
 
@@ -1297,16 +1075,33 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     // Wait a frame so the container has its final layout dimensions
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 
-    const rect = this.viewer.nativeElement.getBoundingClientRect();
+    // Use the zoom-wrapper for sizing so the viewer inherits the correct
+    // available space regardless of the current zoom level.
+    const wrapper = this.zoomWrapper?.nativeElement as HTMLElement;
+    const wrapperPadBottom = wrapper
+      ? parseFloat(getComputedStyle(wrapper).paddingBottom) || 0
+      : 0;
+
+    const scale = this.zoomScaleFactor(this.settings.zoomLevel());
+    const renditionWidth = wrapper
+      ? Math.floor(wrapper.clientWidth / scale)
+      : Math.floor(this.viewer.nativeElement.clientWidth / scale);
+    const renditionHeight = wrapper
+      ? Math.floor((wrapper.clientHeight - wrapperPadBottom) / scale)
+      : Math.floor(this.viewer.nativeElement.clientHeight / scale);
 
     // Create new rendition with explicit pixel dimensions
     this.rendition = this.book.renderTo(this.viewer.nativeElement, {
-      width: rect.width,
-      height: rect.height,
-      spread: this.spreadFromPageLayout(this.pageLayout()),
-      flow: this.flowMode(),
+      width: renditionWidth,
+      height: renditionHeight,
+      spread: this.spreadFromPageLayout(this.settings.pageLayout()),
+      flow: this.settings.flowMode(),
       allowScriptedContent: true,
     });
+
+    // Re-wire services to the new rendition
+    this.accessibility.setRendition(this.rendition);
+    this.followModeService.setRendition(this.rendition);
 
     // Re-register themes
     this.registerThemes();
@@ -1328,257 +1123,10 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
     // Re-attach keyboard listeners to the new iframe
     this.attachIframeKeyboardListeners();
+
+    // Re-attach swipe listeners to the new iframe
+    this.attachIframeSwipeListeners();
+    this.rendition.on('rendered', this.swipeRenderedHandler);
   }
 
-  // ---------------------------------------------------------------------------
-  // Follow mode (word-by-word auto-highlighting)
-  // ---------------------------------------------------------------------------
-
-  private startFollowMode(): void {
-    if (!this.rendition) return;
-
-    try {
-      // Stop any existing timer
-      this.cleanupFollowMode();
-      
-      // Get the current page's text content
-      const contents = this.rendition.getContents();
-      if (contents && contents.length > 0) {
-        const iframe = contents[0];
-        const doc = iframe.document;
-        
-        if (doc && doc.body) {
-          // Extract all text nodes and their words
-          this.followModeWords = this.extractWordsFromDocument(doc);
-          this.followModeCurrentIndex = 0;
-          this.followModeIsPaused = false;
-          
-          if (this.followModeWords.length > 0) {
-            this.highlightCurrentWord();
-            this.followModePaused.set(false);
-            this.startFollowModeTimer();
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('Could not initialize follow mode:', error);
-    }
-  }
-
-  private startFollowModeTimer(): void {
-    if (this.followModeTimer) {
-      clearTimeout(this.followModeTimer);
-    }
-    
-    if (this.followModeIsPaused) return;
-    
-    // Calculate delay based on WPM: delay = (60,000 ms/min) / (WPM)
-    const delayMs = (60000 / this.followModeSpeed());
-    
-    this.followModeTimer = setTimeout(() => {
-      this.advanceFollowMode();
-    }, delayMs);
-  }
-
-  private restartFollowModeTimer(): void {
-    // Called when speed changes - restart with new timing
-    if (this.followMode() && !this.followModeIsPaused) {
-      this.startFollowModeTimer();
-    }
-  }
-
-  private toggleFollowModePause(): void {
-    this.followModeIsPaused = !this.followModeIsPaused;
-    this.followModePaused.set(this.followModeIsPaused);
-    
-    if (this.followModeIsPaused) {
-      // Pause - clear timer
-      if (this.followModeTimer) {
-        clearTimeout(this.followModeTimer);
-        this.followModeTimer = null;
-      }
-    } else {
-      // Resume - restart timer
-      this.startFollowModeTimer();
-    }
-  }
-
-  /**
-   * Extract words with their text node references for accurate highlighting
-   */
-  private extractWordsFromDocument(doc: Document): Array<{ text: string; node: Text; offset: number }> {
-    const words: Array<{ text: string; node: Text; offset: number }> = [];
-    
-    const walker = doc.createTreeWalker(
-      doc.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          // Skip script and style tags
-          const parent = node.parentElement;
-          if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          // Accept nodes with actual text content
-          return node.textContent && node.textContent.trim().length > 0
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_REJECT;
-        }
-      }
-    );
-
-    let currentNode: Node | null;
-    while (currentNode = walker.nextNode()) {
-      const textNode = currentNode as Text;
-      const text = textNode.textContent || '';
-      
-      // Split into words while tracking their position in the text node
-      const wordMatches = text.matchAll(/\S+/g);
-      for (const match of wordMatches) {
-        const word = match[0];
-        const offset = match.index!;
-        words.push({ text: word, node: textNode, offset });
-      }
-    }
-    
-    return words;
-  }
-
-  private highlightCurrentWord(): void {
-    if (!this.rendition || this.followModeWords.length === 0) return;
-    if (this.followModeCurrentIndex >= this.followModeWords.length) return;
-
-    try {
-      const contents = this.rendition.getContents();
-      if (!contents || contents.length === 0) return;
-      
-      const iframe = contents[0];
-      const doc = iframe.document;
-      
-      if (!doc) return;
-
-      // Remove previous highlight
-      this.removeCurrentHighlight(doc);
-
-      // Get current word info
-      const wordInfo = this.followModeWords[this.followModeCurrentIndex];
-      
-      // Create a range for the current word
-      const range = doc.createRange();
-      range.setStart(wordInfo.node, wordInfo.offset);
-      range.setEnd(wordInfo.node, wordInfo.offset + wordInfo.text.length);
-      
-      // Save the range for cleanup
-      this.followModeCurrentRange = range;
-      
-      // Create highlight span
-      const highlight = doc.createElement('span');
-      highlight.className = 'follow-mode-highlight';
-      highlight.style.cssText = `
-        background-color: rgba(255, 215, 0, 0.5);
-        border-radius: 3px;
-        padding: 2px 0;
-        transition: background-color 0.2s ease;
-        box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
-      `;
-      
-      try {
-        range.surroundContents(highlight);
-        
-        // Scroll the highlighted word into view smoothly
-        highlight.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'nearest'
-        });
-      } catch (e) {
-        // If surroundContents fails (e.g., range spans multiple elements),
-        // just mark the word without wrapping
-        console.warn('Could not wrap word, range may span elements:', e);
-      }
-    } catch (error) {
-      console.warn('Error highlighting word:', error);
-    }
-  }
-
-  private removeCurrentHighlight(doc: Document): void {
-    // Remove all existing follow mode highlights
-    const existingHighlights = doc.querySelectorAll('.follow-mode-highlight');
-    existingHighlights.forEach(highlight => {
-      const parent = highlight.parentNode;
-      if (parent) {
-        // Move children out of the highlight span
-        while (highlight.firstChild) {
-          parent.insertBefore(highlight.firstChild, highlight);
-        }
-        parent.removeChild(highlight);
-      }
-    });
-    
-    this.followModeCurrentRange = null;
-  }
-
-  private advanceFollowMode(): void {
-    if (this.followModeCurrentIndex < this.followModeWords.length - 1) {
-      this.followModeCurrentIndex++;
-      this.highlightCurrentWord();
-      if (!this.followModeIsPaused) {
-        this.startFollowModeTimer();
-      }
-    } else {
-      // End of current page - move to next page
-      this.followModeIsPaused = true; // Pause during page transition
-      this.nextPage().then(() => {
-        setTimeout(() => {
-          // Re-initialize follow mode on the new page
-          if (this.followMode()) {
-            this.startFollowMode();
-          }
-        }, 300); // Small delay to ensure page is rendered
-      });
-    }
-  }
-
-  private retreatFollowMode(): void {
-    if (this.followModeCurrentIndex > 0) {
-      this.followModeCurrentIndex--;
-      this.highlightCurrentWord();
-      // Manual control - pause auto-advance
-      if (!this.followModeIsPaused) {
-        this.toggleFollowModePause();
-      }
-    }
-  }
-
-  private cleanupFollowMode(): void {
-    // Clear timer
-    if (this.followModeTimer) {
-      clearTimeout(this.followModeTimer);
-      this.followModeTimer = null;
-    }
-    
-    // Remove highlights
-    if (this.rendition) {
-      try {
-        const contents = this.rendition.getContents();
-        if (contents && contents.length > 0) {
-          const iframe = contents[0];
-          const doc = iframe.document;
-          if (doc) {
-            this.removeCurrentHighlight(doc);
-          }
-        }
-      } catch (error) {
-        // Silently ignore cleanup errors
-      }
-    }
-    
-    // Reset state
-    this.followModeWords = [];
-    this.followModeCurrentIndex = 0;
-    this.followModeCurrentRange = null;
-    this.followModePaused.set(false);
-    this.followModeIsPaused = false;
-  }
 }
-

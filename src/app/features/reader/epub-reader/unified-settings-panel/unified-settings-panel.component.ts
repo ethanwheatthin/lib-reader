@@ -282,6 +282,11 @@ export class UnifiedSettingsPanelComponent {
     this.emitSettings({ ...this.settings, focusMode: !this.settings.focusMode });
   }
 
+  exitFocusMode(): void {
+    this.emitSettings({ ...this.settings, focusMode: false });
+    this.closePanel();
+  }
+
   toggleFollowMode(): void {
     this.emitSettings({ ...this.settings, followMode: !this.settings.followMode });
   }

@@ -55,6 +55,36 @@
   to { opacity: 1; transform: scale(1); }
 }
 
+/* Focus mode: hide header and go fullscreen */
+.reader-header {
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.reader-header.header-hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  z-index: 10;
+}
+
+.reader-container.fullscreen-focus {
+  /* Let the reader component fill the space previously occupied by header */
+}
+
+/* Ensure the reader component always fills remaining space */
+app-epub-reader,
+app-pdf-reader {
+  flex: 1;
+  min-height: 0;
+}
+
+.reader-container.fullscreen-focus app-epub-reader,
+.reader-container.fullscreen-focus app-pdf-reader {
+  flex: 1;
+}
+
 @media (max-width: 768px) {
   .reader-header {
     padding: 0.75rem 1rem;

@@ -30,6 +30,7 @@ export class ReaderComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
+      this.store.dispatch(DocumentsActions.loadDocuments());
       this.store.dispatch(DocumentsActions.openDocument({ id }));
     }
   }

@@ -30,6 +30,16 @@
       <button class="close-btn" (click)="closePanel()" aria-label="Close panel">✕</button>
     </header>
 
+    <!-- Exit focus mode banner (shown when focus mode is active) -->
+    @if (settings.focusMode) {
+      <div class="exit-focus-banner">
+        <span class="exit-focus-text">👁️ Focus Mode is on</span>
+        <button class="exit-focus-btn" (click)="exitFocusMode()" aria-label="Exit focus mode">
+          Exit Focus Mode
+        </button>
+      </div>
+    }
+
     <!-- Tab navigation -->
     <nav class="tab-nav" role="tablist">
       <button

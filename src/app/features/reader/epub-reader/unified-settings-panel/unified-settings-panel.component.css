@@ -160,6 +160,73 @@
   opacity: 1;
 }
 
+/* Exit Focus Mode Banner */
+.exit-focus-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: rgba(147, 51, 234, 0.1);
+  border-bottom: 1px solid rgba(147, 51, 234, 0.2);
+  animation: fadeIn 0.2s ease;
+}
+
+.exit-focus-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9333ea;
+}
+
+.exit-focus-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  background: #9333ea;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.exit-focus-btn:hover {
+  background: #7e22ce;
+  transform: scale(1.03);
+}
+
+.exit-focus-btn:active {
+  transform: scale(0.97);
+}
+
+/* Dark theme exit banner */
+.unified-panel[data-theme='dark'] .exit-focus-banner {
+  background: rgba(168, 85, 247, 0.12);
+  border-bottom-color: rgba(168, 85, 247, 0.25);
+}
+
+.unified-panel[data-theme='dark'] .exit-focus-text {
+  color: #a855f7;
+}
+
+/* Sepia theme exit banner */
+.unified-panel[data-theme='sepia'] .exit-focus-banner {
+  background: rgba(120, 53, 15, 0.08);
+  border-bottom-color: rgba(120, 53, 15, 0.15);
+}
+
+.unified-panel[data-theme='sepia'] .exit-focus-text {
+  color: #78350f;
+}
+
+.unified-panel[data-theme='sepia'] .exit-focus-btn {
+  background: #78350f;
+}
+
+.unified-panel[data-theme='sepia'] .exit-focus-btn:hover {
+  background: #5c2d0e;
+}
+
 /* Tab navigation */
 .tab-nav {
   display: flex;
