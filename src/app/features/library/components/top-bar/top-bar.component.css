@@ -1,3 +1,4 @@
+@import "../../../../flex-custom.css";
 /* ---- Top Bar — full-width header (moved from parent so it scopes to the component) ---- */
 .top-bar {
   display: flex;
