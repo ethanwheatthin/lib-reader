@@ -343,11 +343,7 @@ export class UnifiedSettingsPanelComponent {
   }
 
   selectPresetPalette(palette: CustomColorPalette): void {
-    if (palette.name === 'Default') {
-      this.emitSettings({ ...this.settings, customColorPalette: null });
-    } else {
-      this.emitSettings({ ...this.settings, customColorPalette: palette });
-    }
+    this.emitSettings({ ...this.settings, customColorPalette: palette });
   }
 
   toggleCustomPaletteEditor(): void {
@@ -383,10 +379,11 @@ export class UnifiedSettingsPanelComponent {
 
   /** Check if a preset palette is currently active */
   isPaletteActive(palette: CustomColorPalette): boolean {
-    if (!this.settings.customColorPalette) return palette.name === 'Default';
+    if (!this.settings.customColorPalette) return false;
     return (
       this.settings.customColorPalette.background === palette.background &&
-      this.settings.customColorPalette.text === palette.text
+      this.settings.customColorPalette.text === palette.text &&
+      this.settings.customColorPalette.link === palette.link
     );
   }
 
