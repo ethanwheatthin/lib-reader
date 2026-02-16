@@ -24,6 +24,7 @@ import {
   ZoomLevel,
   PageLayout,
   TocItem,
+  SpineItem,
 } from '../../../core/models/document.model';
 import { EpubReaderSettingsService } from './services/epub-reader-settings.service';
 import { EpubAccessibilityService } from './services/epub-accessibility.service';
@@ -110,6 +111,10 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // --- Chapters/TOC ---
   chapters = signal<TocItem[]>([]);
   currentChapterHref = signal<string | null>(null);
+
+  // --- Spine / Pages ---
+  spineItems = signal<SpineItem[]>([]);
+  currentSpineIndex = signal<number>(-1);
 
   // --- Reading session tracking ---
   private sessionStartTime: Date | null = null;
@@ -299,6 +304,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
     // Load table of contents
     await this.loadTableOfContents();
+    this.loadSpineItems();
 
     // Register all themes before displaying so they are ready to use
     this.registerThemes();
@@ -867,6 +873,94 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Extract spine items from the book to populate the "Pages" tab.
+   * Each spine item represents a section/HTML document in reading order.
+   * We try to match spine hrefs to TOC labels for human-readable names.
+   */
+  private loadSpineItems(): void {
+    if (!this.book?.spine) return;
+    try {
+      const toc = this.chapters();
+      const tocMap = new Map<string, string>();
+
+      // Build a map of href → label from the TOC for labelling spine items
+      const flattenToc = (items: TocItem[]) => {
+        for (const item of items) {
+          // Strip fragment identifiers for matching
+          const baseHref = item.href.split('#')[0];
+          if (!tocMap.has(baseHref)) {
+            tocMap.set(baseHref, item.label);
+          }
+          if (item.subitems) flattenToc(item.subitems);
+        }
+      };
+      flattenToc(toc);
+
+      const items: SpineItem[] = [];
+      this.book.spine.each((section: any, index: number) => {
+        const href = section.href || '';
+        const baseHref = href.split('#')[0];
+        const label = tocMap.get(baseHref) || `Section ${index + 1}`;
+        items.push({
+          index,
+          href,
+          label,
+          cfiBase: section.cfiBase,
+        });
+      });
+      this.spineItems.set(items);
+
+      // Load text previews asynchronously
+      this.loadSpinePreviews(items);
+    } catch {
+      this.spineItems.set([]);
+    }
+  }
+
+  /**
+   * Asynchronously load text content from each spine section for preview.
+   * Updates the spineItems signal progressively as content is extracted.
+   */
+  private async loadSpinePreviews(items: SpineItem[]): Promise<void> {
+    if (!this.book) return;
+    const PREVIEW_LENGTH = 300;
+    const updated = [...items];
+
+    for (let i = 0; i < items.length; i++) {
+      try {
+        const section = this.book.spine.get(items[i].href);
+        if (!section) continue;
+        await section.load(this.book.load.bind(this.book));
+        const doc = section.document;
+        if (doc?.body) {
+          const text = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+          updated[i] = { ...updated[i], previewText: text.slice(0, PREVIEW_LENGTH) };
+        }
+        section.unload();
+      } catch {
+        // Skip sections that fail to load
+      }
+
+      // Update signal every 5 sections for progressive rendering
+      if (i % 5 === 0 || i === items.length - 1) {
+        this.spineItems.set([...updated]);
+      }
+    }
+  }
+
+  /**
+   * Update the current spine index based on the current location href.
+   */
+  private updateCurrentSpineIndex(href: string): void {
+    const baseHref = href.split('#')[0];
+    const items = this.spineItems();
+    const idx = items.findIndex((s) => s.href.split('#')[0] === baseHref);
+    if (idx !== -1) {
+      this.currentSpineIndex.set(idx);
+    }
+  }
+
+  /**
    * Load cached locations from localStorage or generate them.
    * Caching avoids the expensive ~5 s generation on every book open.
    */
@@ -908,6 +1002,12 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     if (this.rendition) {
       this.rendition.display(chapter.href);
       // Panel stays open for easier navigation
+    }
+  }
+
+  onSpineSelect(spineItem: SpineItem): void {
+    if (this.rendition) {
+      this.rendition.display(spineItem.href);
     }
   }
 
@@ -1050,6 +1150,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     // Update current chapter based on href
     if (location.start.href) {
       this.currentChapterHref.set(location.start.href);
+      this.updateCurrentSpineIndex(location.start.href);
     }
 
     // Check if current location is bookmarked

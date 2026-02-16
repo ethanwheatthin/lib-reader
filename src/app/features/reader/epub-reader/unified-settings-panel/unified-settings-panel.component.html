@@ -56,6 +56,17 @@
         📖 Chapters
       </button>
       }
+      @if (!isPdf) {
+      <button
+        class="tab-button"
+        [class.active]="activeTab() === 'pages'"
+        (click)="switchTab('pages')"
+        role="tab"
+        [attr.aria-selected]="activeTab() === 'pages'"
+        aria-label="Sections and pages">
+        📄 Pages
+      </button>
+      }
       <button
         class="tab-button"
         [class.active]="activeTab() === 'bookmarks'"
@@ -489,6 +500,36 @@
               </div>
             }
           </nav>
+        </div>
+      }
+
+      <!-- PAGES TAB -->
+      @if (activeTab() === 'pages') {
+        <div class="pages-tab" role="tabpanel">
+          @if (spineItems.length === 0) {
+            <p class="empty-message">No sections available</p>
+          }
+          <div class="spine-grid">
+            @for (item of spineItems; track item.index) {
+              <button
+                class="spine-card"
+                [class.current]="currentSpineIndex === item.index"
+                (click)="onSpineClick(item)"
+                [attr.aria-label]="'Go to ' + item.label"
+                [attr.aria-current]="currentSpineIndex === item.index ? 'true' : null">
+                <div class="spine-card-preview">
+                  @if (item.previewText) {
+                    <div class="spine-preview-text">{{ item.previewText }}</div>
+                  } @else {
+                    <div class="spine-preview-placeholder">
+                      <span class="spine-preview-icon">📄</span>
+                    </div>
+                  }
+                </div>
+                <span class="spine-card-label">{{ item.index + 1 }}</span>
+              </button>
+            }
+          </div>
         </div>
       }
 

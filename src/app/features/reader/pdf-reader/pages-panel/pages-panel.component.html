@@ -1,0 +1,123 @@
+@if (isOpen) {
+  <aside class="pages-panel" role="dialog" aria-label="Document navigation">
+    <!-- Header with tabs -->
+    <header class="panel-header">
+      <nav class="panel-tabs" role="tablist">
+        <button
+          class="tab-btn"
+          [class.active]="activeTab() === 'contents'"
+          (click)="setTab('contents')"
+          role="tab"
+          [attr.aria-selected]="activeTab() === 'contents'">
+          Contents
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="activeTab() === 'pages'"
+          (click)="setTab('pages')"
+          role="tab"
+          [attr.aria-selected]="activeTab() === 'pages'">
+          Pages
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="activeTab() === 'bookmarks'"
+          (click)="setTab('bookmarks')"
+          role="tab"
+          [attr.aria-selected]="activeTab() === 'bookmarks'">
+          Bookmarks
+        </button>
+      </nav>
+      <button class="close-btn" (click)="closePanel()" aria-label="Close panel">✕</button>
+    </header>
+
+    <!-- Contents tab -->
+    @if (activeTab() === 'contents') {
+      <div class="panel-body">
+        @if (outline.length === 0) {
+          <p class="empty-state">No table of contents available for this PDF.</p>
+        }
+        @for (item of outline; track item.title) {
+          <div class="outline-group">
+            <button class="outline-item" (click)="onOutlineClick(item)">
+              <span class="outline-label">{{ item.title }}</span>
+            </button>
+            @if (item.items && item.items.length > 0) {
+              <div class="outline-subitems">
+                @for (sub of item.items; track sub.title) {
+                  <button class="outline-item outline-item--sub" (click)="onOutlineClick(sub)">
+                    <span class="outline-label">{{ sub.title }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Pages tab -->
+    @if (activeTab() === 'pages') {
+      <div class="panel-body pages-grid-wrapper">
+        @if (generatingThumbnails() && thumbnails().size === 0) {
+          <div class="loading-state">
+            <span class="spinner"></span>
+            <span>Generating thumbnails…</span>
+          </div>
+        }
+        <div class="pages-grid">
+          @for (page of [].constructor(totalPages); track $index) {
+            <button
+              class="page-thumb"
+              [class.current]="$index + 1 === currentPage"
+              (click)="onPageClick($index + 1)"
+              [attr.aria-label]="'Go to page ' + ($index + 1)"
+              [attr.aria-current]="$index + 1 === currentPage ? 'page' : null">
+              <div class="thumb-image-wrapper">
+                @if (thumbnails().get($index + 1); as src) {
+                  <img [src]="src" [alt]="'Page ' + ($index + 1)" loading="lazy" />
+                } @else {
+                  <div class="thumb-placeholder">
+                    <span>{{ $index + 1 }}</span>
+                  </div>
+                }
+              </div>
+              <span class="page-number">{{ $index + 1 }}</span>
+            </button>
+          }
+        </div>
+        @if (generatingThumbnails() && thumbnails().size > 0) {
+          <div class="loading-inline">
+            <span class="spinner spinner--small"></span>
+            Loading {{ thumbnails().size }} / {{ totalPages }}
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Bookmarks tab -->
+    @if (activeTab() === 'bookmarks') {
+      <div class="panel-body">
+        @if (bookmarks.length === 0) {
+          <p class="empty-state">No bookmarks yet. Tap 🏷️ to add one.</p>
+        }
+        @for (bm of bookmarks; track bm.id) {
+          <div class="bookmark-item" (click)="onBookmarkClick(bm)" role="button" tabindex="0">
+            <span class="bookmark-icon">🔖</span>
+            <div class="bookmark-info">
+              <span class="bookmark-label">{{ bm.label }}</span>
+              <span class="bookmark-date">{{ bm.createdAt | date: 'short' }}</span>
+            </div>
+            <button
+              class="bookmark-remove"
+              (click)="onBookmarkRemove(bm.id, $event)"
+              aria-label="Remove bookmark"
+              title="Remove">
+              ✕
+            </button>
+          </div>
+        }
+      </div>
+    }
+  </aside>
+}

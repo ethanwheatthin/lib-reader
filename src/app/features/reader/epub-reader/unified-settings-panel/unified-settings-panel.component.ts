@@ -7,6 +7,7 @@ import {
   ZoomLevel,
   PageLayout,
   TocItem, 
+  SpineItem,
   Bookmark, 
   ReadingGoal, 
   ReadingStats,
@@ -43,7 +44,7 @@ export interface SettingsState {
   customColorPalette: CustomColorPalette | null;
 }
 
-export type TabType = 'settings' | 'chapters' | 'bookmarks' | 'accessibility';
+export type TabType = 'settings' | 'chapters' | 'pages' | 'bookmarks' | 'accessibility';
 
 @Component({
   selector: 'app-unified-settings-panel',
@@ -64,6 +65,10 @@ export class UnifiedSettingsPanelComponent {
   @Input() chapters: TocItem[] = [];
   @Input() currentChapter: string | null = null;
   
+  // Pages tab inputs
+  @Input() spineItems: SpineItem[] = [];
+  @Input() currentSpineIndex: number = -1;
+  
   // Bookmarks tab inputs
   @Input() bookmarks: Bookmark[] = [];
   @Input() readingStats: ReadingStats | null = null;
@@ -75,6 +80,7 @@ export class UnifiedSettingsPanelComponent {
   @Output() close = new EventEmitter<void>();
   @Output() settingsChange = new EventEmitter<SettingsState>();
   @Output() chapterSelect = new EventEmitter<TocItem>();
+  @Output() spineSelect = new EventEmitter<SpineItem>();
   @Output() bookmarkJump = new EventEmitter<Bookmark>();
   @Output() bookmarkRemove = new EventEmitter<string>();
 
@@ -155,6 +161,7 @@ export class UnifiedSettingsPanelComponent {
     switch (this.activeTab()) {
       case 'settings': return 'Display options';
       case 'chapters': return 'Table of contents';
+      case 'pages': return 'Pages';
       case 'bookmarks': return 'Bookmarks';
       case 'accessibility': return 'Accessibility';
       default: return 'Display options';
@@ -413,6 +420,10 @@ export class UnifiedSettingsPanelComponent {
 
   onChapterClick(chapter: TocItem): void {
     this.chapterSelect.emit(chapter);
+  }
+
+  onSpineClick(spineItem: SpineItem): void {
+    this.spineSelect.emit(spineItem);
   }
 
   // ---------------------------------------------------------------------------

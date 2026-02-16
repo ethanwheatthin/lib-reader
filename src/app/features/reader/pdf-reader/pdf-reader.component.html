@@ -39,6 +39,15 @@
       title="Bookmarks">
       📑
     </button>
+
+    <button
+      class="pages-panel-toggle"
+      (click)="togglePagesPanel()"
+      [attr.aria-expanded]="pagesPanelOpen()"
+      aria-label="Pages & Chapters"
+      title="Pages & Chapters">
+      ☰
+    </button>
   </div>
 
   <!-- Bookmarks panel -->
@@ -110,4 +119,19 @@
   <div class="canvas-wrapper">
     <canvas #pdfCanvas></canvas>
   </div>
+
+  <!-- Pages / Chapters / Bookmarks panel -->
+  <app-pages-panel
+    [isOpen]="pagesPanelOpen()"
+    [totalPages]="totalPages"
+    [currentPage]="currentPage"
+    [pdfDoc]="pdfDoc"
+    [outline]="pdfOutline()"
+    [bookmarks]="bookmarksList()"
+    (close)="togglePagesPanel()"
+    (pageSelect)="onPanelPageSelect($event)"
+    (outlineSelect)="onPanelOutlineSelect($event)"
+    (bookmarkSelect)="jumpToBookmark($event)"
+    (bookmarkRemove)="onPanelBookmarkRemove($event)"
+  />
 </div>

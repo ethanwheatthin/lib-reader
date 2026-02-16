@@ -172,6 +172,33 @@
 }
 
 /* ========================================================================
+   Pages Panel Toggle
+   ======================================================================== */
+.pages-panel-toggle {
+  position: absolute;
+  right: 3.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.5rem 0.7rem !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(var(--blur-light)) !important;
+  -webkit-backdrop-filter: blur(var(--blur-light)) !important;
+  color: var(--color-text-secondary) !important;
+  font-size: 1.3rem;
+  line-height: 1;
+  border-radius: 50% !important;
+  transition: all var(--transition-base) !important;
+  box-shadow: var(--shadow-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+.pages-panel-toggle:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  transform: translateY(-52%) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* ========================================================================
    ETA Badge
    ======================================================================== */
 .eta-badge {

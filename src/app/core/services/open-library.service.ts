@@ -45,7 +45,7 @@ export class OpenLibraryService {
   searchByTitle(title: string): Observable<BookMetadata[]> {
     const query = encodeURIComponent(title.trim());
     return this.http.get<OpenLibrarySearchResult>(
-      `${this.API_BASE}/search.json?title=${query}&limit=5`
+      `${this.API_BASE}/search.json?title=${query}&limit=10`
     ).pipe(
       map(response => this.mapSearchResults(response)),
       catchError(() => of([]))
@@ -90,7 +90,7 @@ export class OpenLibraryService {
    * Map search results to BookMetadata array
    */
   private mapSearchResults(response: OpenLibrarySearchResult): BookMetadata[] {
-    return response.docs.slice(0, 5).map(doc => ({
+    return response.docs.slice(0, 10).map(doc => ({
       title: doc.title,
       author: doc.author_name?.join(', '),
       publisher: doc.publisher?.[0],

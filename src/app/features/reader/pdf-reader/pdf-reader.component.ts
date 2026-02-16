@@ -15,11 +15,12 @@ import {
   selectTodayReadingTime,
 } from '../../../store/documents/documents.selectors';
 import { Bookmark, ReadingSession } from '../../../core/models/document.model';
+import { PagesPanelComponent, PdfOutlineItem } from './pages-panel/pages-panel.component';
 
 @Component({
   selector: 'app-pdf-reader',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PagesPanelComponent],
   templateUrl: './pdf-reader.component.html',
   styleUrl: './pdf-reader.component.css'
 })
@@ -29,7 +30,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   
   private store = inject(Store);
   private indexDB = inject(IndexDBService);
-  private pdfDoc: any;
+  pdfDoc: any;
   
   currentPage = 1;
   totalPages = 0;
@@ -45,6 +46,11 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
 
   bookmarksOpen = signal<boolean>(false);
   isCurrentPageBookmarked = signal<boolean>(false);
+
+  // --- Pages panel ---
+  pagesPanelOpen = signal<boolean>(false);
+  pdfOutline = signal<PdfOutlineItem[]>([]);
+  bookmarksList = signal<Bookmark[]>([]);
 
   // --- Reading session tracking ---
   private sessionStartTime: Date | null = null;
@@ -70,6 +76,8 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
         
         await this.renderPage(this.currentPage);
         this.checkBookmarkState();
+        await this.loadOutline();
+        this.subscribeBookmarks();
       }
     } catch (error) {
       console.error('Error loading PDF:', error);
@@ -141,6 +149,61 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
 
   toggleBookmarksPanel(): void {
     this.bookmarksOpen.update((open) => !open);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pages / Chapters panel
+  // ---------------------------------------------------------------------------
+
+  togglePagesPanel(): void {
+    this.pagesPanelOpen.update((open) => !open);
+  }
+
+  async onPanelPageSelect(page: number): Promise<void> {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+      await this.renderPage(page);
+      this.updateProgress();
+      this.checkBookmarkState();
+    }
+  }
+
+  async onPanelOutlineSelect(item: PdfOutlineItem): Promise<void> {
+    if (!this.pdfDoc || !item.dest) return;
+    try {
+      let dest = item.dest;
+      if (typeof dest === 'string') {
+        dest = await this.pdfDoc.getDestination(dest);
+      }
+      if (dest) {
+        const ref = dest[0];
+        const pageIndex = await this.pdfDoc.getPageIndex(ref);
+        await this.onPanelPageSelect(pageIndex + 1);
+      }
+    } catch {
+      // fallback — ignore navigation errors
+    }
+  }
+
+  onPanelBookmarkRemove(bookmarkId: string): void {
+    this.store.dispatch(
+      DocumentsActions.removeBookmark({ id: this.documentId, bookmarkId })
+    );
+    this.checkBookmarkState();
+  }
+
+  private async loadOutline(): Promise<void> {
+    if (!this.pdfDoc) return;
+    try {
+      const outline = await this.pdfDoc.getOutline();
+      this.pdfOutline.set(outline ?? []);
+    } catch {
+      this.pdfOutline.set([]);
+    }
+  }
+
+  private subscribeBookmarks(): void {
+    this.bookmarks$.subscribe((bms) => this.bookmarksList.set(bms));
   }
 
   toggleBookmarkAtCurrentPage(): void {

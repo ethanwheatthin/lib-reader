@@ -64,10 +64,6 @@
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--color-text-primary);
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .btn-close {
@@ -154,6 +150,21 @@
 .btn-search:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* No Results */
+.no-results {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.no-results p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
 }
 
 /* Search Results */

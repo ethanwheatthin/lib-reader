@@ -24,6 +24,7 @@ export class EditBookModalComponent implements OnInit, OnDestroy {
   searchResults: BookMetadata[] = [];
   isSearching = false;
   showSearchResults = false;
+  hasSearched = false;
 
   // the query typed into the search box (separate from the editable metadata.title)
   searchQuery = '';
@@ -62,15 +63,23 @@ export class EditBookModalComponent implements OnInit, OnDestroy {
         }
       }),
       filter((q) => !!q?.trim()),
-      tap(() => (this.isSearching = true)),
+      tap(() => {
+        this.isSearching = true;
+        console.log(`[EditBookModal] Searching Open Library for: "${this.searchQuery}"`);
+      }),
       switchMap((q) =>
         this.openLibraryService.searchByTitle(q).pipe(
-          catchError(() => of([]))
+          catchError((err) => {
+            console.error('[EditBookModal] Search failed:', err);
+            return of([]);
+          })
         )
       )
     ).subscribe((results) => {
+      console.log(`[EditBookModal] Search returned ${results.length} result(s)`, results);
       this.searchResults = results;
       this.showSearchResults = results.length > 0;
+      this.hasSearched = true;
       this.isSearching = false;
     });
   }
@@ -105,6 +114,7 @@ export class EditBookModalComponent implements OnInit, OnDestroy {
     this.searchQuery = this.metadata.title || '';
     this.searchResults = [];
     this.showSearchResults = false;
+    this.hasSearched = false;
     this.isSearching = false;
   }
 

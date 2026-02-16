@@ -800,6 +800,93 @@
   gap: 0.25rem;
 }
 
+/* PAGES / SPINE TAB STYLES */
+.pages-tab {
+  padding: 0.75rem;
+}
+
+.spine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.spine-card {
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.spine-card:hover {
+  border-color: rgba(79, 172, 254, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.spine-card.current {
+  border-color: #4facfe;
+  box-shadow: 0 0 0 1px #4facfe, 0 4px 12px rgba(79, 172, 254, 0.2);
+}
+
+.spine-card-preview {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--button-bg, #f5f5f5);
+  position: relative;
+}
+
+.spine-preview-text {
+  width: 100%;
+  height: 100%;
+  padding: 8px 6px;
+  font-size: 4.5px;
+  line-height: 1.45;
+  color: var(--panel-text, #333);
+  opacity: 0.7;
+  overflow: hidden;
+  word-break: break-word;
+  user-select: none;
+  pointer-events: none;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.spine-preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--panel-text, #999);
+  opacity: 0.35;
+}
+
+.spine-preview-icon {
+  font-size: 1.5rem;
+}
+
+.spine-card-label {
+  font-size: 0.78rem;
+  color: var(--panel-text, #666);
+  font-weight: 500;
+  padding-bottom: 0.25rem;
+  opacity: 0.7;
+}
+
+.spine-card.current .spine-card-label {
+  color: #4facfe;
+  font-weight: 700;
+  opacity: 1;
+}
+
 /* BOOKMARKS TAB STYLES */
 .bookmarks-tab {
   display: flex;
@@ -1288,6 +1375,14 @@
   .chapter-item {
     padding: 1rem;
     font-size: 1rem;
+  }
+
+  .spine-grid {
+    gap: 0.6rem;
+  }
+
+  .spine-preview-text {
+    font-size: 4px;
   }
 
   .bookmark-item {

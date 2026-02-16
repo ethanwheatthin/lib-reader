@@ -36,6 +36,12 @@
       </div>
 
       <!-- Search Results -->
+      @if (hasSearched && searchResults.length === 0 && !isSearching) {
+        <div class="no-results">
+          <p>No results found. Try a different search term or edit the details manually below.</p>
+        </div>
+      }
+
       @if (showSearchResults) {
         <div class="search-results">
           <h3>Search Results</h3>

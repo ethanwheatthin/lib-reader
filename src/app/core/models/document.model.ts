@@ -17,6 +17,17 @@ export interface TocItem {
   parent?: string;
 }
 
+/** Represents a spine section in an EPUB (a single HTML document in the reading order) */
+export interface SpineItem {
+  index: number;
+  href: string;
+  label: string;
+  /** The CFI base for this spine item, if available */
+  cfiBase?: string;
+  /** A plain-text preview snippet extracted from the section content */
+  previewText?: string;
+}
+
 export interface ReadingSession {
   startedAt: Date;
   endedAt: Date;
@@ -147,7 +158,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   lineHeight: 1.6,
   fontFamily: 'Georgia',
   theme: 'light',
-  flowMode: 'scrolled',
+  flowMode: 'paginated',
   spreadMode: 'none',
   focusMode: false,
   followMode: false,

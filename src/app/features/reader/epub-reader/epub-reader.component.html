@@ -96,6 +96,8 @@
     [settings]="currentSettings"
     [chapters]="chapters()"
     [currentChapter]="currentChapterHref()"
+    [spineItems]="spineItems()"
+    [currentSpineIndex]="currentSpineIndex()"
     [bookmarks]="(bookmarks$ | async) ?? []"
     [readingStats]="(readingStats$ | async) ?? null"
     [readingGoal]="(readingGoal$ | async) ?? null"
@@ -104,6 +106,7 @@
     (close)="togglePanel()"
     (settingsChange)="onSettingsChange($event)"
     (chapterSelect)="onChapterSelect($event)"
+    (spineSelect)="onSpineSelect($event)"
     (bookmarkJump)="jumpToBookmark($event)"
     (bookmarkRemove)="removeBookmark($event)">
   </app-unified-settings-panel>
