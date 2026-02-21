@@ -8,3 +8,5 @@ export { ReadingGoalEntity } from './ReadingGoal';
 export { ReadingGoalCompletedDayEntity } from './ReadingGoalCompletedDay';
 export { ShelfEntity } from './Shelf';
 export { DocumentFileEntity } from './DocumentFile';
+export { LibrarySourceEntity } from './LibrarySource';
+export { LibrarySourcePathEntity } from './LibrarySourcePath';

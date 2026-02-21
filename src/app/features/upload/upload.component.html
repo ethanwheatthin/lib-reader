@@ -1,4 +1,5 @@
 <div class="upload-container">
+  <!-- File upload button -->
   <input
     type="file"
     accept=".epub,.pdf"
@@ -10,4 +11,185 @@
   <button (click)="fileInput.click()" class="upload-btn">
     Upload files
   </button>
+
+  <!-- Library Sources toggle -->
+  <button class="sources-toggle-btn" (click)="toggleSourcesPanel()" [class.active]="showSourcesPanel">
+    📁 Sources
+  </button>
 </div>
+
+<!-- Library Sources Panel (dropdown/overlay) -->
+@if (showSourcesPanel) {
+  <div class="sources-backdrop" (click)="toggleSourcesPanel()"></div>
+  <div class="sources-panel glass-panel">
+    <div class="sources-header">
+      <h3>Library Sources</h3>
+      <p class="sources-subtitle">Watch directories for EPUB &amp; PDF files</p>
+    </div>
+
+    <!-- Directory picker overlay (shown inside panel) -->
+    @if (showDirPicker) {
+      <div class="dir-picker-overlay">
+        <app-dir-picker
+          (pathSelected)="onPathPicked($event)"
+          (cancelled)="onPickerCancelled()"
+        ></app-dir-picker>
+      </div>
+    }
+
+    <!-- Source list -->
+    @if (!showDirPicker) {
+    <div class="sources-list">
+      @if (sourcesLoading$ | async) {
+        <div class="sources-loading">Loading sources…</div>
+      }
+
+      @for (source of sources$ | async; track trackBySourceId($index, source)) {
+        <div class="source-card" [class.editing]="editingSourceId === source.id">
+          @if (editingSourceId === source.id) {
+            <!-- Inline edit form -->
+            <div class="source-edit-form">
+              <label class="form-label">Library Name</label>
+              <input
+                type="text"
+                class="form-input"
+                [(ngModel)]="editName"
+                placeholder="Library name"
+              />
+
+              <label class="form-label">Watched Paths</label>
+              @for (p of editPaths; track trackByPath($index); let i = $index) {
+                <div class="path-row">
+                  <input
+                    type="text"
+                    class="form-input path-input"
+                    [(ngModel)]="editPaths[i]"
+                    placeholder="/path/to/books"
+                  />
+                  <button
+                    class="icon-btn browse-btn"
+                    (click)="openDirPicker(i, 'edit')"
+                    title="Browse server folders"
+                  >📂</button>
+                  <button
+                    class="icon-btn remove-btn"
+                    (click)="removePathField(i)"
+                    [disabled]="editPaths.length <= 1"
+                    title="Remove path"
+                  >✕</button>
+                </div>
+              }
+              <button class="add-path-btn" (click)="addPathField()">+ Add path</button>
+
+              <div class="form-actions">
+                <button class="btn-save" (click)="saveEdit()">Save</button>
+                <button class="btn-cancel" (click)="cancelEdit()">Cancel</button>
+              </div>
+            </div>
+          } @else {
+            <!-- Source summary -->
+            <div class="source-summary" (click)="startEdit(source)">
+              <div class="source-name-row">
+                <span class="source-name">{{ source.name }}</span>
+                <span class="source-file-count">{{ source.totalFilesFound }} files</span>
+              </div>
+              <div class="source-paths">
+                @for (sp of source.paths; track sp.id) {
+                  <span class="source-path-tag" [title]="sp.path">{{ sp.path }}</span>
+                }
+              </div>
+              <div class="source-meta">
+                @if (source.lastScannedAt) {
+                  <span class="last-scan">Last scan: {{ source.lastScannedAt | date: 'short' }}</span>
+                }
+                <span class="polling-badge" [class.enabled]="source.pollingEnabled">
+                  {{ source.pollingEnabled ? 'Polling on' : 'Polling off' }}
+                </span>
+              </div>
+            </div>
+            <div class="source-actions">
+              <button
+                class="icon-btn scan-btn"
+                (click)="scanSource(source.id, $event)"
+                [disabled]="(scanningSourceId$ | async) === source.id"
+                title="Scan now"
+              >
+                @if ((scanningSourceId$ | async) === source.id) {
+                  <span class="spinner-sm"></span>
+                } @else {
+                  🔄
+                }
+              </button>
+              <button
+                class="icon-btn toggle-poll-btn"
+                (click)="togglePolling(source, $event)"
+                [title]="source.pollingEnabled ? 'Disable polling' : 'Enable polling'"
+              >
+                {{ source.pollingEnabled ? '⏸' : '▶' }}
+              </button>
+              <button
+                class="icon-btn delete-btn"
+                (click)="deleteSource(source.id, $event)"
+                title="Delete source"
+              >🗑</button>
+            </div>
+          }
+        </div>
+      }
+
+      @if (!(sourcesLoading$ | async) && (sources$ | async)?.length === 0 && !showCreateForm) {
+        <div class="sources-empty">
+          <p>No library sources yet.</p>
+          <p class="hint">Add a source to watch directories for book files.</p>
+        </div>
+      }
+    </div>
+
+    <!-- Create new source form -->
+    @if (showCreateForm) {
+      <div class="create-form">
+        <label class="form-label">Library Name</label>
+        <input
+          type="text"
+          class="form-input"
+          [(ngModel)]="newSourceName"
+          placeholder="e.g. My eBooks, Work Library"
+        />
+
+        <label class="form-label">Directory Paths</label>
+        @for (p of newSourcePaths; track trackByPath($index); let i = $index) {
+          <div class="path-row">
+            <input
+              type="text"
+              class="form-input path-input"
+              [(ngModel)]="newSourcePaths[i]"
+              placeholder="/mnt/books or C:\\Users\\Me\\Books"
+            />
+            <button
+              class="icon-btn browse-btn"
+              (click)="openDirPicker(i, 'create')"
+              title="Browse server folders"
+            >📂</button>
+            <button
+              class="icon-btn remove-btn"
+              (click)="removePathField(i)"
+              [disabled]="newSourcePaths.length <= 1"
+              title="Remove path"
+            >✕</button>
+          </div>
+        }
+        <button class="add-path-btn" (click)="addPathField()">+ Add path</button>
+
+        <div class="form-actions">
+          <button class="btn-save" (click)="createSource()" [disabled]="!newSourceName.trim()">
+            Create Source
+          </button>
+          <button class="btn-cancel" (click)="cancelCreateForm()">Cancel</button>
+        </div>
+      </div>
+    } @else {
+      <button class="add-source-btn" (click)="openCreateForm()">+ New Library Source</button>
+    }
+    }
+  </div>
+}

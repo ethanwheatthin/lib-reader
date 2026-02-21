@@ -11,6 +11,8 @@ import { DocumentsEffects } from './store/documents/documents.effects';
 import { shelvesFeature } from './store/shelves/shelves.reducer';
 import { ShelvesEffects } from './store/shelves/shelves.effects';
 import { uiFeature } from './store/ui/ui.reducer';
+import { librarySourcesFeature } from './store/library-sources/library-sources.reducer';
+import { LibrarySourcesEffects } from './store/library-sources/library-sources.effects';
 import { AutoBackupService } from './core/services/auto-backup.service';
 
 export const appConfig: ApplicationConfig = {
@@ -22,9 +24,10 @@ export const appConfig: ApplicationConfig = {
     provideStore({
       [documentsFeature.name]: documentsFeature.reducer,
       [shelvesFeature.name]: shelvesFeature.reducer,
-      [uiFeature.name]: uiFeature.reducer
+      [uiFeature.name]: uiFeature.reducer,
+      [librarySourcesFeature.name]: librarySourcesFeature.reducer,
     }),
-    provideEffects([DocumentsEffects, ShelvesEffects]),
+    provideEffects([DocumentsEffects, ShelvesEffects, LibrarySourcesEffects]),
     provideStoreDevtools({ maxAge: 25 }),
     {
       provide: APP_INITIALIZER,

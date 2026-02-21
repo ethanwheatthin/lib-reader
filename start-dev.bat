@@ -40,6 +40,13 @@ if not exist "backend\node_modules\" (
     echo.
 )
 
+REM Clean up any existing Docker containers
+echo Cleaning up existing Docker containers...
+docker compose down >nul 2>&1
+
+REM Force remove the specific container if it exists
+docker rm -f libreader-db >nul 2>&1
+
 REM Start PostgreSQL container
 echo Starting PostgreSQL database...
 docker compose up -d postgres

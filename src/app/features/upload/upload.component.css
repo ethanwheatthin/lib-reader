@@ -4,6 +4,10 @@
 .upload-container {
   padding: 0;
   margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
 }
 
 /* ========================================================================
@@ -40,3 +44,398 @@
   background: #e8eaed;
 }
 
+/* ========================================================================
+   Sources Toggle Button
+   ======================================================================== */
+.sources-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 1rem;
+  background: transparent;
+  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid #dadce0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.sources-toggle-btn:hover {
+  background: #f8f9fa;
+  border-color: #c6c9cc;
+  color: var(--color-text-primary, #1f2937);
+}
+
+.sources-toggle-btn.active {
+  background: rgba(26, 115, 232, 0.08);
+  color: #1a73e8;
+  border-color: rgba(26, 115, 232, 0.3);
+}
+
+/* ========================================================================
+   Sources Panel (floating overlay)
+   ======================================================================== */
+.sources-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 999;
+}
+
+.sources-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 1000;
+  border-radius: var(--radius-lg, 16px);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sources-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #1f2937);
+}
+
+.sources-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary, #9ca3af);
+}
+
+/* ========================================================================
+   Source List
+   ======================================================================== */
+.sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sources-loading,
+.sources-empty {
+  text-align: center;
+  padding: 1.5rem 0;
+  color: var(--color-text-tertiary, #9ca3af);
+  font-size: 0.85rem;
+}
+
+.sources-empty .hint {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+}
+
+/* ========================================================================
+   Source Card
+   ======================================================================== */
+.source-card {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-md, 12px);
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.source-card:hover {
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(31, 38, 135, 0.06));
+}
+
+.source-card.editing {
+  flex-direction: column;
+}
+
+/* Summary */
+.source-summary {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.source-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.source-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--color-text-primary, #1f2937);
+}
+
+.source-file-count {
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary, #9ca3af);
+}
+
+.source-paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.source-path-tag {
+  display: inline-block;
+  background: rgba(26, 115, 232, 0.08);
+  color: #1a73e8;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-pill, 999px);
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: 'Fira Code', monospace;
+}
+
+.source-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--color-text-tertiary, #9ca3af);
+}
+
+.polling-badge {
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.65rem;
+  font-weight: 500;
+  background: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+}
+
+.polling-badge.enabled {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success, #10b981);
+}
+
+/* Source actions */
+.source-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  padding-top: 0.15rem;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm, 8px);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background var(--transition-fast);
+}
+
+.icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.browse-btn {
+  color: #1a73e8;
+  font-size: 0.9rem;
+}
+
+.browse-btn:hover {
+  background: rgba(26, 115, 232, 0.08);
+}
+
+/* ========================================================================
+   Directory Picker Overlay (inside panel)
+   ======================================================================== */
+.dir-picker-overlay {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md, 12px);
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* ========================================================================
+   Forms (Create + Edit)
+   ======================================================================== */
+.create-form,
+.source-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b7280);
+  margin-bottom: -0.25rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  border: 1px solid #dadce0;
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--color-text-primary, #1f2937);
+  transition: border-color var(--transition-fast);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #1a73e8;
+}
+
+.path-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.path-input {
+  flex: 1;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.78rem;
+}
+
+.remove-btn {
+  font-size: 0.7rem;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-tertiary, #9ca3af);
+}
+
+.add-path-btn {
+  background: none;
+  border: 1px dashed #dadce0;
+  border-radius: var(--radius-sm, 8px);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  color: #1a73e8;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.add-path-btn:hover {
+  background: rgba(26, 115, 232, 0.06);
+  border-color: rgba(26, 115, 232, 0.3);
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.btn-save {
+  padding: 0.45rem 1.1rem;
+  background: var(--gradient-primary, linear-gradient(90deg, #4facfe 0%, #00f2fe 100%));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: box-shadow var(--transition-fast);
+}
+
+.btn-save:hover:not(:disabled) {
+  box-shadow: var(--shadow-primary, 0 8px 24px rgba(79, 172, 254, 0.25));
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  padding: 0.45rem 1.1rem;
+  background: transparent;
+  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid #dadce0;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-fast);
+}
+
+.btn-cancel:hover {
+  background: #f8f9fa;
+}
+
+/* ========================================================================
+   Add Source Button (at bottom of panel)
+   ======================================================================== */
+.add-source-btn {
+  width: 100%;
+  padding: 0.65rem;
+  background: none;
+  border: 1px dashed #dadce0;
+  border-radius: var(--radius-md, 12px);
+  color: #1a73e8;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.add-source-btn:hover {
+  background: rgba(26, 115, 232, 0.06);
+  border-color: rgba(26, 115, 232, 0.3);
+}
+
+/* ========================================================================
+   Small spinner for scan button
+   ======================================================================== */
+.spinner-sm {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(26, 115, 232, 0.2);
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin-sm 0.6s linear infinite;
+}
+
+@keyframes spin-sm {
+  to {
+    transform: rotate(360deg);
+  }
+}

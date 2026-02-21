@@ -10,6 +10,8 @@ import { requestLogger } from './middleware/request-logger';
 import documentsRouter from './routes/documents';
 import shelvesRouter from './routes/shelves';
 import backupRouter from './routes/backup';
+import librarySourcesRouter from './routes/library-sources';
+import filesystemRouter from './routes/filesystem';
 
 dotenv.config();
 
@@ -50,6 +52,8 @@ async function bootstrap() {
   // Routes
   app.use('/api/documents', documentsRouter);
   app.use('/api/shelves', shelvesRouter);
+  app.use('/api/library-sources', librarySourcesRouter);
+  app.use('/api/filesystem', filesystemRouter);
   app.use('/api/export', backupRouter);
   app.use('/api/backup', backupRouter);
   app.use('/api/restore', backupRouter);
