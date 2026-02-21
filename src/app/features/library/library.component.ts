@@ -293,12 +293,26 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.editingDocument = null;
   }
 
-  saveMetadata(metadata: BookMetadata): void {
+  saveMetadata(event: { metadata: BookMetadata; coverFile?: File }): void {
     if (this.editingDocument) {
-      this.store.dispatch(DocumentsActions.updateBookMetadata({ 
-        id: this.editingDocument.id, 
-        metadata 
-      }));
+      const { metadata, coverFile } = event;
+      const docId = this.editingDocument.id;
+
+      // If a cover file was uploaded, send it to the server first
+      if (coverFile) {
+        this.documentApiService.uploadCoverImage(docId, coverFile).subscribe({
+          next: () => {
+            // After cover upload, update the rest of the metadata
+            this.store.dispatch(DocumentsActions.updateBookMetadata({ id: docId, metadata }));
+            // Reload documents to pick up the new cover URL
+            this.store.dispatch(DocumentsActions.loadDocuments());
+          },
+          error: (err) => console.error('Failed to upload cover image:', err),
+        });
+      } else {
+        this.store.dispatch(DocumentsActions.updateBookMetadata({ id: docId, metadata }));
+      }
+
       this.editingDocument = null;
     }
   }

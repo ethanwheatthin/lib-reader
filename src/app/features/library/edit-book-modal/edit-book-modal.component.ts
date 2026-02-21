@@ -3,28 +3,36 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BookMetadata, Document } from '../../../core/models/document.model';
 import { OpenLibraryService } from '../../../core/services/open-library.service';
+import { DocumentApiService } from '../../../core/services/document-api.service';
+import { CoverUrlPipe } from '../../../core/pipes/cover-url.pipe';
 import { Subject, Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, switchMap, tap, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-edit-book-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CoverUrlPipe],
   templateUrl: './edit-book-modal.component.html',
   styleUrl: './edit-book-modal.component.css'
 })
 export class EditBookModalComponent implements OnInit, OnDestroy {
   @Input() document!: Document;
   @Output() close = new EventEmitter<void>();
-  @Output() save = new EventEmitter<BookMetadata>();
+  @Output() save = new EventEmitter<{ metadata: BookMetadata; coverFile?: File }>();
 
   private openLibraryService = inject(OpenLibraryService);
+  private documentApi = inject(DocumentApiService);
 
   metadata: BookMetadata = {};
   searchResults: BookMetadata[] = [];
   isSearching = false;
   showSearchResults = false;
   hasSearched = false;
+
+  /** Locally selected cover image file (not yet uploaded) */
+  coverFile: File | null = null;
+  /** Data URL preview of the selected cover file */
+  coverPreviewUrl: string | null = null;
 
   // the query typed into the search box (separate from the editable metadata.title)
   searchQuery = '';
@@ -101,11 +109,40 @@ export class EditBookModalComponent implements OnInit, OnDestroy {
     this.searchQuery = result.title || '';
     this.searchResults = [];
     this.showSearchResults = false;
+    // Clear any locally selected cover file when picking a search result
+    this.coverFile = null;
+    this.coverPreviewUrl = null;
+  }
+
+  /** Handle cover image file selection */
+  onCoverFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.coverFile = input.files[0];
+      // Generate preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.coverPreviewUrl = reader.result as string;
+      };
+      reader.readAsDataURL(this.coverFile);
+      // Clear the URL field since we're using a file
+      this.metadata.coverUrl = '';
+    }
+  }
+
+  /** Remove the selected cover file */
+  removeCoverFile(): void {
+    this.coverFile = null;
+    this.coverPreviewUrl = null;
+  }
+
+  /** Get the resolved cover URL for display */
+  getResolvedCoverUrl(): string | undefined {
+    return this.documentApi.getCoverImageUrl(this.metadata.coverUrl);
   }
 
   onSave(): void {
-    // emit the updated metadata but do NOT close the modal; top-left close button is the only way to close
-    this.save.emit(this.metadata);
+    this.save.emit({ metadata: this.metadata, coverFile: this.coverFile || undefined });
   }
 
   onCancel(): void {

@@ -175,9 +175,11 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // ---------------------------------------------------------------------------
 
   private async initPdfReader(blob: Blob): Promise<void> {
-    // Set pdf.js worker
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    // Set pdf.js worker from bundled npm package
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
 
     const arrayBuffer = await blob.arrayBuffer();
     this.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

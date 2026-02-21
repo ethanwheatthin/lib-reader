@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
+import http from 'http';
 import { AppDataSource } from '../data-source';
 import {
   DocumentEntity,
@@ -46,6 +48,50 @@ const upload = multer({
   },
   limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
 });
+
+// Multer instance for cover image uploads
+const coverUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed for covers'));
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
+/**
+ * Download an image from a URL and return the buffer + content type.
+ */
+function downloadImage(url: string): Promise<{ buffer: Buffer; contentType: string }> {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    const request = client.get(url, { timeout: 10000 }, (response) => {
+      // Follow redirects
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        return downloadImage(response.headers.location).then(resolve).catch(reject);
+      }
+      if (response.statusCode !== 200) {
+        return reject(new Error(`HTTP ${response.statusCode}`));
+      }
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const contentType = response.headers['content-type'] || 'image/jpeg';
+        resolve({ buffer, contentType });
+      });
+      response.on('error', reject);
+    });
+    request.on('error', reject);
+    request.on('timeout', () => {
+      request.destroy();
+      reject(new Error('Download timeout'));
+    });
+  });
+}
 
 // Helper: get document repo with full relations
 function getDocRepo() {
@@ -191,6 +237,21 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       if (metadata.publishYear !== undefined) metaEntity.publishYear = metadata.publishYear;
       if (metadata.isbn !== undefined) metaEntity.isbn = metadata.isbn;
       if (metadata.coverUrl !== undefined) metaEntity.coverUrl = metadata.coverUrl;
+
+      // If coverUrl is an external URL, download and store as blob
+      if (metadata.coverUrl && /^https?:\/\//.test(metadata.coverUrl)) {
+        try {
+          const { buffer, contentType } = await downloadImage(metadata.coverUrl);
+          metaEntity.coverImage = buffer;
+          metaEntity.coverImageType = contentType || 'image/jpeg';
+          // Clear the external URL since we now have the blob
+          metaEntity.coverUrl = null;
+        } catch (downloadErr) {
+          logger.warn(`Failed to download cover image from ${metadata.coverUrl}:`, downloadErr);
+          // Keep the external URL as fallback
+        }
+      }
+
       if (metadata.description !== undefined) metaEntity.description = metadata.description;
       if (metadata.pageCount !== undefined) metaEntity.pageCount = metadata.pageCount;
       if (metadata.openLibraryKey !== undefined) metaEntity.openLibraryKey = metadata.openLibraryKey;
@@ -236,6 +297,80 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     await docRepo.remove(doc);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ===== COVER IMAGE =====
+
+/** GET /api/documents/:id/cover — serve stored cover image */
+router.get('/:id/cover', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const metaRepo = AppDataSource.getRepository(BookMetadataEntity);
+    const meta = await metaRepo.findOne({ where: { documentId: req.params.id } });
+    if (!meta || !meta.coverImage) {
+      return res.status(404).json({ error: { message: 'No cover image stored' } });
+    }
+
+    res.setHeader('Content-Type', meta.coverImageType || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(meta.coverImage);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** PUT /api/documents/:id/cover — upload a cover image directly */
+router.put('/:id/cover', coverUpload.single('cover'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const docRepo = getDocRepo();
+    const doc = await docRepo.findOne({ where: { id: req.params.id } });
+    if (!doc) return res.status(404).json({ error: { message: 'Document not found' } });
+
+    const metaRepo = AppDataSource.getRepository(BookMetadataEntity);
+    let meta = await metaRepo.findOne({ where: { documentId: req.params.id } });
+    if (!meta) {
+      meta = metaRepo.create({ documentId: req.params.id });
+    }
+
+    if (req.file) {
+      // Direct file upload
+      meta.coverImage = req.file.buffer;
+      meta.coverImageType = req.file.mimetype;
+      meta.coverUrl = null; // Clear external URL
+    } else if (req.body.coverUrl && /^https?:\/\//.test(req.body.coverUrl)) {
+      // URL provided — download and store
+      const { buffer, contentType } = await downloadImage(req.body.coverUrl);
+      meta.coverImage = buffer;
+      meta.coverImageType = contentType;
+      meta.coverUrl = null;
+    } else {
+      return res.status(400).json({ error: { message: 'Provide a cover file or coverUrl' } });
+    }
+
+    await metaRepo.save(meta);
+
+    const fullDoc = await loadFullDocument(req.params.id);
+    res.json(toDocumentDTO(fullDoc!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** DELETE /api/documents/:id/cover — remove stored cover image */
+router.delete('/:id/cover', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const metaRepo = AppDataSource.getRepository(BookMetadataEntity);
+    const meta = await metaRepo.findOne({ where: { documentId: req.params.id } });
+    if (!meta) return res.status(404).json({ error: { message: 'Metadata not found' } });
+
+    meta.coverImage = null;
+    meta.coverImageType = null;
+    meta.coverUrl = null;
+    await metaRepo.save(meta);
+
     res.status(204).send();
   } catch (err) {
     next(err);

@@ -271,10 +271,14 @@ export class DocumentsEffects {
       this.actions$.pipe(
         ofType(DocumentsActions.updateBookMetadata),
         mergeMap(({ id, metadata }) =>
-          this.documentApi.updateBookMetadata(id, metadata).pipe(catchError(() => of(null)))
+          this.documentApi.updateBookMetadata(id, metadata).pipe(
+            // If coverUrl was an external URL, the backend downloaded it as a blob.
+            // Reload so the store gets the local cover URL.
+            map(() => DocumentsActions.loadDocuments()),
+            catchError(() => of({ type: 'NO_ACTION' as const }))
+          )
         )
-      ),
-    { dispatch: false }
+      )
   );
 
   fetchMetadataFromOpenLibrary$ = createEffect(() =>
@@ -301,10 +305,14 @@ export class DocumentsEffects {
       this.actions$.pipe(
         ofType(DocumentsActions.fetchMetadataSuccess),
         mergeMap(({ id, metadata }) =>
-          this.documentApi.updateBookMetadata(id, metadata).pipe(catchError(() => of(null)))
+          this.documentApi.updateBookMetadata(id, metadata).pipe(
+            // After the backend downloads & stores the cover image, reload all
+            // documents so the store picks up the local cover URL.
+            map(() => DocumentsActions.loadDocuments()),
+            catchError(() => of({ type: 'NO_ACTION' as const }))
+          )
         )
-      ),
-    { dispatch: false }
+      )
   );
 
   // --- Auto-fetch metadata for newly uploaded / discovered documents ---

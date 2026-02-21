@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragStart, CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { Document } from '../../../../core/models/document.model';
 import { BookMetadata } from '../../../../core/models/document.model';
+import { CoverUrlPipe } from '../../../../core/pipes/cover-url.pipe';
 
 
 
 @Component({
   selector: 'app-book-card',
   standalone: true,
-  imports: [CommonModule, DragDropModule],
+  imports: [CommonModule, DragDropModule, CoverUrlPipe],
   templateUrl: './book-card.component.html',
   styleUrl: './book-card.component.css'
 })

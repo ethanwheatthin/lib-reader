@@ -41,7 +41,10 @@ export function toDocumentDTO(entity: DocumentEntity): any {
         publisher: entity.metadata.publisher ?? undefined,
         publishYear: entity.metadata.publishYear ?? undefined,
         isbn: entity.metadata.isbn ?? undefined,
-        coverUrl: entity.metadata.coverUrl ?? undefined,
+        // Prefer locally stored cover blob; fall back to external URL
+        coverUrl: entity.metadata.coverImage
+          ? `/api/documents/${entity.id}/cover`
+          : (entity.metadata.coverUrl ?? undefined),
         description: entity.metadata.description ?? undefined,
         pageCount: entity.metadata.pageCount ?? undefined,
         subjects: (entity.metadata.subjects ?? []).map((s: any) => s.name),

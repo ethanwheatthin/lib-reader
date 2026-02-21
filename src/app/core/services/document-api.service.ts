@@ -124,4 +124,30 @@ export class DocumentApiService {
   updateBookMetadata(documentId: string, metadata: BookMetadata): Observable<Document> {
     return this.http.put<Document>(`${this.baseUrl}/${documentId}`, { metadata });
   }
+
+  /** Upload a cover image file for a document */
+  uploadCoverImage(documentId: string, file: File): Observable<Document> {
+    const formData = new FormData();
+    formData.append('cover', file);
+    return this.http.put<Document>(`${this.baseUrl}/${documentId}/cover`, formData);
+  }
+
+  /** Upload a cover image from a URL (download and store as blob) */
+  uploadCoverImageFromUrl(documentId: string, coverUrl: string): Observable<Document> {
+    return this.http.put<Document>(`${this.baseUrl}/${documentId}/cover`, { coverUrl });
+  }
+
+  /** Get the full URL for a cover image (handles relative API paths) */
+  getCoverImageUrl(coverUrl: string | undefined): string | undefined {
+    if (!coverUrl) return undefined;
+    // If it's already an absolute URL, return as-is
+    if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
+      return coverUrl;
+    }
+    // If it's a relative API path (e.g., /api/documents/:id/cover), prepend the API base
+    if (coverUrl.startsWith('/api/')) {
+      return `${environment.apiUrl}${coverUrl}`;
+    }
+    return coverUrl;
+  }
 }

@@ -7,9 +7,14 @@
 
     <div class="modal-body">
       <!-- Cover Preview -->
-      @if (metadata.coverUrl) {
+      @if (coverPreviewUrl) {
         <div class="cover-preview">
-          <img [src]="metadata.coverUrl" [alt]="metadata.title || 'Book cover'" />
+          <img [src]="coverPreviewUrl" [alt]="metadata.title || 'Book cover'" />
+          <button class="btn-remove-cover" (click)="removeCoverFile()" title="Remove cover">✕</button>
+        </div>
+      } @else if (metadata.coverUrl) {
+        <div class="cover-preview">
+          <img [src]="metadata.coverUrl | coverUrl" [alt]="metadata.title || 'Book cover'" />
         </div>
       }
 
@@ -100,8 +105,28 @@
         </div>
 
         <div class="form-group">
-          <label for="coverUrl">Cover URL</label>
-          <input id="coverUrl" type="url" [(ngModel)]="metadata.coverUrl" placeholder="https://..." />
+          <label>Cover Image</label>
+          <div class="cover-upload-group">
+            <label class="btn-upload-cover" for="coverFile">
+              {{ coverFile ? '✓ ' + coverFile.name : 'Choose image…' }}
+            </label>
+            <input 
+              id="coverFile" 
+              type="file" 
+              accept="image/*"
+              (change)="onCoverFileSelected($event)"
+              class="file-input-hidden"
+            />
+            @if (!coverFile) {
+              <span class="cover-or">or</span>
+              <input 
+                type="url" 
+                [(ngModel)]="metadata.coverUrl" 
+                placeholder="Paste image URL…"
+                class="cover-url-input"
+              />
+            }
+          </div>
         </div>
 
         <div class="form-group">
