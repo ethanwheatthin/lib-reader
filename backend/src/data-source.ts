@@ -12,6 +12,7 @@ import { ReadingGoalCompletedDayEntity } from './entities/ReadingGoalCompletedDa
 import { ShelfEntity } from './entities/Shelf';
 import { DocumentFileEntity } from './entities/DocumentFile';
 import { InitialSchema1700000000000 } from '../migrations/1700000000000-InitialSchema';
+import { AddBookmarkChapter1708523246000 } from '../migrations/1708523246000-AddBookmarkChapter';
 
 dotenv.config();
 
@@ -36,6 +37,6 @@ export const AppDataSource = new DataSource({
     ShelfEntity,
     DocumentFileEntity,
   ],
-  migrations: [InitialSchema1700000000000],
+  migrations: [InitialSchema1700000000000, AddBookmarkChapter1708523246000],
   subscribers: [],
 });

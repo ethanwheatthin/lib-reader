@@ -321,6 +321,7 @@ router.post('/:id/bookmarks', async (req: Request, res: Response, next: NextFunc
       location: req.body.location,
       label: req.body.label,
       note: req.body.note || null,
+      chapter: req.body.chapter || null,
     });
     const saved = await bookmarkRepo.save(bookmark);
 
@@ -330,6 +331,7 @@ router.post('/:id/bookmarks', async (req: Request, res: Response, next: NextFunc
       label: saved.label,
       createdAt: saved.createdAt,
       ...(saved.note ? { note: saved.note } : {}),
+      ...(saved.chapter ? { chapter: saved.chapter } : {}),
     });
   } catch (err) {
     next(err);

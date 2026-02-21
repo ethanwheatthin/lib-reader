@@ -62,6 +62,7 @@ export function toDocumentDTO(entity: DocumentEntity): any {
     label: b.label,
     createdAt: b.createdAt,
     ...(b.note ? { note: b.note } : {}),
+    ...(b.chapter ? { chapter: b.chapter } : {}),
   }));
 
   return {

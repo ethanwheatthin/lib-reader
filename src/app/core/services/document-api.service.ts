@@ -57,7 +57,7 @@ export class DocumentApiService {
   /** Add a bookmark to a document */
   addBookmark(
     documentId: string,
-    bookmark: { location: string; label: string; note?: string }
+    bookmark: { location: string; label: string; note?: string; chapter?: string }
   ): Observable<Bookmark> {
     return this.http.post<Bookmark>(`${this.baseUrl}/${documentId}/bookmarks`, bookmark);
   }

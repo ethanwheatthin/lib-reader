@@ -29,6 +29,9 @@ export class BookmarkEntity {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  chapter: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

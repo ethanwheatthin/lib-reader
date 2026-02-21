@@ -7,6 +7,8 @@ export interface Bookmark {
   createdAt: Date;
   /** Optional user-provided note */
   note?: string;
+  /** Chapter/section title where the bookmark was created */
+  chapter?: string;
 }
 
 export interface TocItem {

@@ -546,7 +546,12 @@
               }
               @for (bm of bookmarks; track bm.id) {
                 <div class="bookmark-item" (click)="onBookmarkClick(bm)" role="button" tabindex="0">
-                  <span class="bookmark-label">{{ bm.label }}</span>
+                  <div class="bookmark-info">
+                    <span class="bookmark-label">{{ bm.label }}</span>
+                    @if (bm.chapter) {
+                      <span class="bookmark-chapter">{{ bm.chapter }}</span>
+                    }
+                  </div>
                   <span class="bookmark-date">{{ bm.createdAt | date: 'short' }}</span>
                   <button
                     class="bookmark-remove"

@@ -194,6 +194,7 @@ export class DocumentsEffects {
               location: bookmark.location,
               label: bookmark.label,
               note: bookmark.note,
+              chapter: bookmark.chapter,
             })
             .pipe(catchError(() => of(null)))
         )
