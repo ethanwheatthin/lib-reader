@@ -5,7 +5,8 @@ import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import ePub from 'epubjs';
 import * as pdfjsLib from 'pdfjs-dist';
-import { IndexDBService } from '../../../core/services/indexdb.service';
+import { firstValueFrom } from 'rxjs';
+import { DocumentApiService } from '../../../core/services/document-api.service';
 import { DocumentsActions } from '../../../store/documents/documents.actions';
 import { UnifiedSettingsPanelComponent, SettingsState } from './unified-settings-panel/unified-settings-panel.component';
 import {
@@ -49,7 +50,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
 
   private store = inject(Store);
   private router = inject(Router);
-  private indexDB = inject(IndexDBService);
+  private documentApi = inject(DocumentApiService);
   protected settings = inject(EpubReaderSettingsService);
   private accessibility = inject(EpubAccessibilityService);
   private followModeService = inject(EpubFollowModeService);
@@ -156,7 +157,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     );
 
     try {
-      const blob = await this.indexDB.getFile(this.documentId);
+      const blob = await firstValueFrom(this.documentApi.getDocumentFile(this.documentId));
       if (blob) {
         if (this.isPdf) {
           await this.initPdfReader(blob);
@@ -188,7 +189,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.viewer.nativeElement.appendChild(this.pdfCanvas);
 
     // Load saved page or start at page 1
-    const metadata = await this.indexDB.getMetadata(this.documentId);
+    const metadata = await firstValueFrom(this.documentApi.getDocument(this.documentId));
     if (metadata) {
       this.documentTitle = metadata.title || 'PDF Document';
       if (metadata.currentPage && metadata.currentPage >= 1) {
@@ -310,7 +311,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.registerThemes();
 
     // Resume from saved position if available
-    const metadata = await this.indexDB.getMetadata(this.documentId);
+    const metadata = await firstValueFrom(this.documentApi.getDocument(this.documentId)).catch(() => null);
     if (metadata) {
       this.documentTitle = metadata.title || 'EPUB Document';
       if (metadata.currentCfi) {
@@ -371,6 +372,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
       this.accessibility.destroy();
       this.rendition.off('rendered', this.keyboardRenderedHandler);
       this.rendition.off('rendered', this.swipeRenderedHandler);
+      this.rendition.off('rendered', this.fontOverrideRenderedHandler);
       this.detachIframeSwipeListeners();
       this.rendition.destroy();
     }
@@ -704,6 +706,50 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     this.rendition.themes.override('line-height', `${this.settings.lineHeight()}`);
     this.rendition.themes.override('font-family', this.settings.fontFamily());
     this.rendition.themes.override('letter-spacing', `${this.settings.letterSpacing()}em`);
+
+    // Inject a high-specificity style into the iframe to override inline or
+    // class-level font-family declarations (e.g. MsoNormal from Word-exported EPUBs).
+    this.injectFontOverrideStyles();
+
+    // Re-inject on every page turn so new pages also get the override
+    this.rendition.off('rendered', this.fontOverrideRenderedHandler);
+    this.rendition.on('rendered', this.fontOverrideRenderedHandler);
+  }
+
+  /** Handler that re-injects font override styles after each page render */
+  private fontOverrideRenderedHandler = () => {
+    this.injectFontOverrideStyles();
+  };
+
+  /**
+   * Inject a <style> tag into the epub iframe that forces font-family on all
+   * elements with !important. This overrides element-level or class-level
+   * font declarations (e.g. .MsoNormal, .MsoNormal4) that would otherwise
+   * beat the body-level override set by epub.js themes.
+   */
+  private injectFontOverrideStyles(): void {
+    if (!this.rendition) return;
+    try {
+      const contents = this.rendition.getContents();
+      if (!contents || contents.length === 0) return;
+
+      const doc = contents[0].document as Document;
+      if (!doc) return;
+
+      const existing = doc.getElementById('font-family-override');
+      if (existing) existing.remove();
+
+      const font = this.settings.fontFamily();
+      const lh = this.settings.lineHeight();
+      const style = doc.createElement('style');
+      style.id = 'font-family-override';
+      style.textContent = `
+        * { font-family: ${font} !important; line-height: ${lh} !important; }
+      `;
+      doc.head.appendChild(style);
+    } catch {
+      // Silently ignore — iframe may not be ready yet
+    }
   }
 
   /**
@@ -849,6 +895,39 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
   // ---------------------------------------------------------------------------
   // Bookmarks
   // ---------------------------------------------------------------------------
+
+  /**
+   * Resolves the current chapter/section label from the TOC based on the current
+   * chapter href. Falls back to spine item label or undefined.
+   */
+  private getCurrentChapterLabel(): string | undefined {
+    const href = this.currentChapterHref();
+    if (!href) return undefined;
+
+    // Normalize href by stripping any fragment (#...) for matching
+    const baseHref = href.split('#')[0];
+
+    // Search the TOC (including subitems) for a matching href
+    const toc = this.chapters();
+    for (const item of toc) {
+      if (item.href.split('#')[0] === baseHref) return item.label;
+      if (item.subitems) {
+        for (const sub of item.subitems) {
+          if (sub.href.split('#')[0] === baseHref) return sub.label;
+        }
+      }
+    }
+
+    // Fallback: try spine items
+    const spineIdx = this.currentSpineIndex();
+    const spine = this.spineItems();
+    if (spineIdx >= 0 && spineIdx < spine.length) {
+      const label = spine[spineIdx].label;
+      if (label && label !== `Section ${spineIdx + 1}`) return label;
+    }
+
+    return undefined;
+  }
 
   private async loadTableOfContents(): Promise<void> {
     if (!this.book) return;
@@ -1036,6 +1115,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
           location: pageStr,
           label: `Page ${this.pdfCurrentPage}`,
           createdAt: new Date(),
+          chapter: this.getCurrentChapterLabel(),
         };
         this.store.dispatch(DocumentsActions.addBookmark({ id: this.documentId, bookmark }));
         this.isCurrentLocationBookmarked.set(true);
@@ -1067,6 +1147,7 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
         location: this.currentCfi,
         label: this.currentLocation || 'Bookmark',
         createdAt: new Date(),
+        chapter: this.getCurrentChapterLabel(),
       };
       this.store.dispatch(DocumentsActions.addBookmark({ id: this.documentId, bookmark }));
       this.isCurrentLocationBookmarked.set(true);
@@ -1510,6 +1591,10 @@ export class EpubReaderComponent implements OnInit, OnDestroy {
     // Re-attach swipe listeners to the new iframe
     this.attachIframeSwipeListeners();
     this.rendition.on('rendered', this.swipeRenderedHandler);
+
+    // Re-attach font override handler
+    this.rendition.off('rendered', this.fontOverrideRenderedHandler);
+    this.rendition.on('rendered', this.fontOverrideRenderedHandler);
   }
 
 }
