@@ -91,28 +91,8 @@
 
 /* Drop zone highlight — dragged item is HOVERING over this shelf */
 .shelf-item.cdk-drop-list-receiving {
-  background: #e8f0fe;
+  background: #d3e3fd;
   box-shadow: inset 0 0 0 2px #1a73e8;
-  transform: scale(1.02);
-  transition: all 150ms ease;
-}
-
-.shelf-item.cdk-drop-list-receiving .shelf-name {
-  color: #1a73e8;
-  font-weight: 600;
-}
-
-.shelf-item.cdk-drop-list-receiving .nav-count {
-  color: #1a73e8;
-}
-
-.shelf-item.cdk-drop-list-receiving .shelf-color-indicator {
-  box-shadow: 0 0 0 2px #1a73e8;
-}
-
-.shelf-item.cdk-drop-list-receiving .shelf-thumb-placeholder {
-  transform: scale(1.1);
-  transition: transform 150ms ease;
 }
 
 .shelf-color-indicator { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
