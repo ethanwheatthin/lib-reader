@@ -22,13 +22,13 @@
       <span class="eta-badge" title="Estimated time remaining">{{ eta }}</span>
     }
 
-    <select [(ngModel)]="scale" (change)="onScaleChange()" class="scale-select">
-      <option [value]="0.5">50%</option>
-      <option [value]="0.75">75%</option>
-      <option [value]="1">100%</option>
-      <option [value]="1.25">125%</option>
-      <option [value]="1.5">150%</option>
-      <option [value]="2">200%</option>
+    <select [(ngModel)]="zoom" (ngModelChange)="0" class="scale-select">
+      <option [ngValue]="0.5">50%</option>
+      <option [ngValue]="0.75">75%</option>
+      <option [ngValue]="1">100%</option>
+      <option [ngValue]="1.25">125%</option>
+      <option [ngValue]="1.5">150%</option>
+      <option [ngValue]="2">200%</option>
     </select>
 
     <button
@@ -117,7 +117,22 @@
   }
 
   <div class="canvas-wrapper">
-    <canvas #pdfCanvas></canvas>
+    @if (pdfSrc) {
+      <pdf-viewer
+        [src]="pdfSrc"
+        [page]="currentPage"
+        [zoom]="zoom"
+        [show-all]="false"
+        [render-text]="true"
+        [original-size]="true"
+        [autoresize]="true"
+        [show-borders]="false"
+        (after-load-complete)="onPdfLoaded($event)"
+        (pageChange)="onPageChange($event)"
+        (error)="onPdfError($event)"
+        class="pdf-viewer-el"
+      ></pdf-viewer>
+    }
   </div>
 
   <!-- Pages / Chapters / Bookmarks panel -->

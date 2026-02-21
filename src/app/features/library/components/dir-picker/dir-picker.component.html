@@ -1,0 +1,73 @@
+<div class="dir-picker">
+  <!-- Address bar -->
+  <div class="address-bar">
+    <button class="nav-btn" (click)="goUp()" [disabled]="!parentPath && !currentPath" title="Go up">
+      ⬆
+    </button>
+    <input
+      type="text"
+      class="address-input"
+      [(ngModel)]="addressBar"
+      (keydown.enter)="goToAddress()"
+      placeholder="Enter path and press Enter"
+    />
+    <button class="nav-btn go-btn" (click)="goToAddress()" title="Go">→</button>
+  </div>
+
+  @if (currentPath) {
+    <div class="current-path">{{ currentPath }}</div>
+  }
+
+  <!-- Content -->
+  <div class="dir-content">
+    @if (loading) {
+      <div class="dir-loading">
+        <span class="spinner-sm"></span> Loading…
+      </div>
+    }
+
+    @if (error) {
+      <div class="dir-error">{{ error }}</div>
+    }
+
+    @if (!loading && !error) {
+      @if (entries.length === 0) {
+        <div class="dir-empty">This directory is empty</div>
+      }
+
+      <!-- Directories -->
+      @for (entry of dirEntries; track entry.path) {
+        <div class="dir-entry dir-folder" (click)="navigateTo(entry)" title="Open {{ entry.name }}">
+          <span class="entry-icon">📁</span>
+          <span class="entry-name">{{ entry.name }}</span>
+        </div>
+      }
+
+      <!-- Files (epub/pdf preview) -->
+      @if (fileEntries.length > 0) {
+        <div class="file-divider">
+          <span>{{ fileEntries.length }} book file{{ fileEntries.length > 1 ? 's' : '' }} found</span>
+        </div>
+        @for (entry of fileEntries; track entry.path) {
+          <div class="dir-entry dir-file">
+            <span class="entry-icon">{{ entry.name.endsWith('.epub') ? '📖' : '📄' }}</span>
+            <span class="entry-name">{{ entry.name }}</span>
+            <span class="entry-size">{{ formatSize(entry.size) }}</span>
+          </div>
+        }
+      }
+    }
+  </div>
+
+  <!-- Actions -->
+  <div class="dir-actions">
+    <button
+      class="btn-select-dir"
+      (click)="selectCurrent()"
+      [disabled]="!currentPath"
+    >
+      Select this folder
+    </button>
+    <button class="btn-cancel-dir" (click)="cancel()">Cancel</button>
+  </div>
+</div>

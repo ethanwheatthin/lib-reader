@@ -10,7 +10,7 @@
   <button class="drag-handle" cdkDragHandle (click)="$event.stopPropagation()" title="Drag to shelf">⠿</button>
   <div class="book-cover-wrapper">
     @if (doc.metadata?.coverUrl) {
-      <img class="book-cover-img" [src]="doc.metadata?.coverUrl" [alt]="doc.title" />
+      <img class="book-cover-img" [src]="doc.metadata?.coverUrl | coverUrl" [alt]="doc.title" />
     } @else {
       <div class="book-cover-fallback">
         <span class="fallback-icon">{{ doc.type === 'epub' ? '📖' : '📄' }}</span>
@@ -37,10 +37,19 @@
       <!-- <button class="menu-item" (click)="onFetch($event)">
         <span>🔄</span> Fetch metadata
       </button> -->
+      <button class="menu-item" (click)="onDownload($event)">
+        <span>⬇️</span> Download file
+      </button>
       <div class="menu-divider"></div>
       <button class="menu-item menu-item-danger" (click)="onDelete($event)">
         <span>🗑️</span> Delete
       </button>
     </div>
   }
+
+  <!-- Lightweight drag preview: small book icon -->
+  <div class="drag-preview" *cdkDragPreview>
+    <span class="drag-preview-icon">📖</span>
+    <span class="drag-preview-title">{{ doc.title }}</span>
+  </div>
 </div>

@@ -6,8 +6,10 @@ export class PdfService {
   async extractMetadata(file: File): Promise<{ title: string; totalPages?: number }> {
     // Ensure worker is configured before using pdf.js
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.mjs',
+        import.meta.url
+      ).toString();
     }
 
     const arrayBuffer = await file.arrayBuffer();

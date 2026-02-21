@@ -38,6 +38,7 @@
     "@ngrx/store-devtools": "^21.0.1",
     "epubjs": "^0.3.93",
     "localforage": "^1.10.0",
+    "ng2-pdf-viewer": "^10.4.0",
     "pdfjs-dist": "^5.4.624",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

@@ -1,9 +1,8 @@
-import { Component, Input, inject, OnInit, OnDestroy, ElementRef, ViewChild, signal } from '@angular/core';
+import { Component, Input, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs';
+import { PdfViewerModule } from 'ng2-pdf-viewer';
 import { firstValueFrom } from 'rxjs';
 import { DocumentApiService } from '../../../core/services/document-api.service';
 import { DocumentsActions } from '../../../store/documents/documents.actions';
@@ -21,21 +20,22 @@ import { PagesPanelComponent, PdfOutlineItem } from './pages-panel/pages-panel.c
 @Component({
   selector: 'app-pdf-reader',
   standalone: true,
-  imports: [CommonModule, FormsModule, PagesPanelComponent],
+  imports: [CommonModule, FormsModule, PagesPanelComponent, PdfViewerModule],
   templateUrl: './pdf-reader.component.html',
-  styleUrl: './pdf-reader.component.css'
+  styleUrl: './pdf-reader.component.css',
 })
 export class PdfReaderComponent implements OnInit, OnDestroy {
   @Input() documentId!: string;
-  @ViewChild('pdfCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
-  
+
   private store = inject(Store);
   private documentApi = inject(DocumentApiService);
-  pdfDoc: any;
-  
+
+  pdfSrc: string | Uint8Array | { data: Uint8Array } | null = null;
+  pdfDoc: any = null;
+
   currentPage = 1;
   totalPages = 0;
-  scale = 1.5;
+  zoom = 1;
 
   // --- Bookmarks & progress from store ---
   bookmarks$ = this.store.select(selectSelectedDocumentBookmarks);
@@ -58,76 +58,66 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   private sessionStartPage = 0;
 
   async ngOnInit(): Promise<void> {
-    // Set worker from bundled npm package instead of CDN
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
     this.startReadingSession();
-    
+
     try {
       const blob = await firstValueFrom(this.documentApi.getDocumentFile(this.documentId));
       if (blob) {
         const arrayBuffer = await blob.arrayBuffer();
-        this.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        this.totalPages = this.pdfDoc.numPages;
-        
+        this.pdfSrc = { data: new Uint8Array(arrayBuffer) };
+
         // Load saved page or start at page 1
-        const metadata = await firstValueFrom(this.documentApi.getDocument(this.documentId)).catch(() => null);
+        const metadata = await firstValueFrom(
+          this.documentApi.getDocument(this.documentId)
+        ).catch(() => null);
         if (metadata?.currentPage) {
           this.currentPage = metadata.currentPage;
         }
-        
-        await this.renderPage(this.currentPage);
-        this.checkBookmarkState();
-        await this.loadOutline();
-        this.subscribeBookmarks();
       }
     } catch (error) {
       console.error('Error loading PDF:', error);
     }
   }
 
+  /** Called by ng2-pdf-viewer after the PDF document has been fully loaded */
+  onPdfLoaded(pdf: any): void {
+    this.pdfDoc = pdf;
+    this.totalPages = pdf.numPages;
+    this.checkBookmarkState();
+    this.loadOutline();
+    this.subscribeBookmarks();
+  }
+
+  /** Called by ng2-pdf-viewer on rendering errors */
+  onPdfError(error: any): void {
+    console.error('Error loading PDF:', error);
+  }
+
   ngOnDestroy(): void {
     this.endReadingSession();
-    if (this.pdfDoc) {
-      this.pdfDoc.destroy();
-    }
   }
 
-  async renderPage(pageNum: number): Promise<void> {
-    try {
-      const page = await this.pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: this.scale });
-      const canvas = this.canvas.nativeElement;
-      const context = canvas.getContext('2d')!;
-      
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      
-      await page.render({ canvasContext: context, viewport }).promise;
-    } catch (error) {
-      console.error('Error rendering page:', error);
-    }
-  }
-
-  async nextPage(): Promise<void> {
+  nextPage(): void {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      await this.renderPage(this.currentPage);
       this.updateProgress();
       this.checkBookmarkState();
     }
   }
 
-  async prevPage(): Promise<void> {
+  prevPage(): void {
     if (this.currentPage > 1) {
       this.currentPage--;
-      await this.renderPage(this.currentPage);
       this.updateProgress();
       this.checkBookmarkState();
     }
   }
 
-  async onScaleChange(): Promise<void> {
-    await this.renderPage(this.currentPage);
+  /** Called when the page changes via ng2-pdf-viewer (e.g. scroll in show-all mode) */
+  onPageChange(page: number): void {
+    this.currentPage = page;
+    this.updateProgress();
+    this.checkBookmarkState();
   }
 
   private updateProgress(): void {
@@ -160,10 +150,9 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
     this.pagesPanelOpen.update((open) => !open);
   }
 
-  async onPanelPageSelect(page: number): Promise<void> {
+  onPanelPageSelect(page: number): void {
     if (page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
-      await this.renderPage(page);
       this.updateProgress();
       this.checkBookmarkState();
     }
@@ -179,7 +168,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
       if (dest) {
         const ref = dest[0];
         const pageIndex = await this.pdfDoc.getPageIndex(ref);
-        await this.onPanelPageSelect(pageIndex + 1);
+        this.onPanelPageSelect(pageIndex + 1);
       }
     } catch {
       // fallback — ignore navigation errors
@@ -237,11 +226,10 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
     }
   }
 
-  async jumpToBookmark(bookmark: Bookmark): Promise<void> {
+  jumpToBookmark(bookmark: Bookmark): void {
     const page = parseInt(bookmark.location, 10);
     if (page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
-      await this.renderPage(page);
       this.updateProgress();
       this.checkBookmarkState();
       this.bookmarksOpen.set(false);

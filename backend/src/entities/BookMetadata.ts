@@ -39,6 +39,12 @@ export class BookMetadataEntity {
   @Column({ name: 'cover_url', type: 'text', nullable: true })
   coverUrl: string | null;
 
+  @Column({ name: 'cover_image', type: 'bytea', nullable: true })
+  coverImage: Buffer | null;
+
+  @Column({ name: 'cover_image_type', type: 'varchar', length: 50, nullable: true })
+  coverImageType: string | null;
+
   @Column({ type: 'text', nullable: true })
   description: string | null;
 

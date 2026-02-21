@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragStart, CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { Document } from '../../../../core/models/document.model';
 import { BookMetadata } from '../../../../core/models/document.model';
+import { CoverUrlPipe } from '../../../../core/pipes/cover-url.pipe';
 
 
 
 @Component({
   selector: 'app-book-card',
   standalone: true,
-  imports: [CommonModule, DragDropModule],
+  imports: [CommonModule, DragDropModule, CoverUrlPipe],
   templateUrl: './book-card.component.html',
   styleUrl: './book-card.component.css'
 })
@@ -22,6 +23,7 @@ export class BookCardComponent {
   @Output() edit = new EventEmitter<{ doc: Document; event: Event }>();
   @Output() fetchMetadata = new EventEmitter<{ doc: Document; event: Event }>();
   @Output() delete = new EventEmitter<string>();
+  @Output() download = new EventEmitter<{ doc: Document; event: Event }>();
   @Output() dragStarted = new EventEmitter<string>();
   @Output() dragEnded = new EventEmitter<string>();
 
@@ -47,6 +49,11 @@ export class BookCardComponent {
   onDelete(e: Event) {
     e.stopPropagation();
     this.delete.emit(this.doc.id);
+  }
+
+  onDownload(e: Event) {
+    e.stopPropagation();
+    this.download.emit({ doc: this.doc, event: e });
   }
 
   started() {

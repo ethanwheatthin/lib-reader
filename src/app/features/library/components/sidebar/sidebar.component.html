@@ -40,11 +40,8 @@
           [cdkDropListData]="docs"
           (cdkDropListDropped)="onDrop($event, null)"
         >
-          @if (docs.length > 0 && docs[0].metadata?.coverUrl) {
-            <img class="shelf-thumb" [src]="docs[0].metadata?.coverUrl" alt="" />
-          } @else {
-            <span class="shelf-thumb-placeholder">📚</span>
-          }
+                      <!-- <span class="shelf-thumb-placeholder">📚</span> -->
+
           <span class="shelf-name">Unshelved</span>
               <span class="nav-count">{{ unshelvedCount(docs) }}</span>
             </div>

@@ -403,7 +403,7 @@
 }
 
 /* ========================================================================
-   Canvas
+   PDF Viewer
    ======================================================================== */
 .canvas-wrapper {
   flex: 1;
@@ -415,10 +415,23 @@
   min-height: 0;
 }
 
-canvas {
+.pdf-viewer-el {
+  display: block;
+  width: 100%;
+  max-width: 900px;
   box-shadow: var(--shadow-2xl);
   background: white;
   border-radius: var(--radius-sm);
+}
+
+/* Override ng2-pdf-viewer internal borders/shadow */
+:host ::ng-deep .ng2-pdf-viewer-container {
+  overflow: visible;
+}
+
+:host ::ng-deep .page {
+  box-shadow: none !important;
+  border: none !important;
 }
 
 @media (max-width: 768px) {

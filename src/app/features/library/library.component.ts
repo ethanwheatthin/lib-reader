@@ -9,6 +9,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Actions, ofType } from '@ngrx/effects';
 import { Document, BookMetadata } from '../../core/models/document.model';
 import { AutoBackupService } from '../../core/services/auto-backup.service';
+import { DocumentApiService } from '../../core/services/document-api.service';
 import { Shelf } from '../../core/models/shelf.model';
 import { selectAllDocuments, selectLoading } from '../../store/documents/documents.selectors';
 import { selectAllShelves, selectSelectedShelfId } from '../../store/shelves/shelves.selectors';
@@ -47,6 +48,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private actions$ = inject(Actions);
   private autoBackupService = inject(AutoBackupService);
+  private documentApiService = inject(DocumentApiService);
   private backupActionsSub: Subscription | null = null;
   private backupTimestamp: ReturnType<typeof setTimeout> | null = null;
   
@@ -291,12 +293,26 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.editingDocument = null;
   }
 
-  saveMetadata(metadata: BookMetadata): void {
+  saveMetadata(event: { metadata: BookMetadata; coverFile?: File }): void {
     if (this.editingDocument) {
-      this.store.dispatch(DocumentsActions.updateBookMetadata({ 
-        id: this.editingDocument.id, 
-        metadata 
-      }));
+      const { metadata, coverFile } = event;
+      const docId = this.editingDocument.id;
+
+      // If a cover file was uploaded, send it to the server first
+      if (coverFile) {
+        this.documentApiService.uploadCoverImage(docId, coverFile).subscribe({
+          next: () => {
+            // After cover upload, update the rest of the metadata
+            this.store.dispatch(DocumentsActions.updateBookMetadata({ id: docId, metadata }));
+            // Reload documents to pick up the new cover URL
+            this.store.dispatch(DocumentsActions.loadDocuments());
+          },
+          error: (err) => console.error('Failed to upload cover image:', err),
+        });
+      } else {
+        this.store.dispatch(DocumentsActions.updateBookMetadata({ id: docId, metadata }));
+      }
+
       this.editingDocument = null;
     }
   }
@@ -307,6 +323,21 @@ export class LibraryComponent implements OnInit, OnDestroy {
       id: doc.id, 
       title: doc.title 
     }));
+  }
+
+  downloadDocument(doc: Document, event: Event): void {
+    event.stopPropagation();
+    this.openMenuId = null;
+    this.documentApiService.getDocumentFile(doc.id).subscribe((blob) => {
+      const ext = doc.type === 'epub' ? '.epub' : '.pdf';
+      const filename = doc.title.replace(/[^a-zA-Z0-9_\- ]/g, '') + ext;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   getCoverImage(doc: Document): string | null {

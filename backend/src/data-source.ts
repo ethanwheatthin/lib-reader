@@ -11,8 +11,12 @@ import { ReadingGoalEntity } from './entities/ReadingGoal';
 import { ReadingGoalCompletedDayEntity } from './entities/ReadingGoalCompletedDay';
 import { ShelfEntity } from './entities/Shelf';
 import { DocumentFileEntity } from './entities/DocumentFile';
+import { LibrarySourceEntity } from './entities/LibrarySource';
+import { LibrarySourcePathEntity } from './entities/LibrarySourcePath';
 import { InitialSchema1700000000000 } from '../migrations/1700000000000-InitialSchema';
 import { AddBookmarkChapter1708523246000 } from '../migrations/1708523246000-AddBookmarkChapter';
+import { AddLibrarySources1708600000000 } from '../migrations/1708600000000-AddLibrarySources';
+import { AddCoverImageBlob1709000000000 } from '../migrations/1709000000000-AddCoverImageBlob';
 
 dotenv.config();
 
@@ -36,7 +40,9 @@ export const AppDataSource = new DataSource({
     ReadingGoalCompletedDayEntity,
     ShelfEntity,
     DocumentFileEntity,
+    LibrarySourceEntity,
+    LibrarySourcePathEntity,
   ],
-  migrations: [InitialSchema1700000000000, AddBookmarkChapter1708523246000],
+  migrations: [InitialSchema1700000000000, AddBookmarkChapter1708523246000, AddLibrarySources1708600000000, AddCoverImageBlob1709000000000],
   subscribers: [],
 });
